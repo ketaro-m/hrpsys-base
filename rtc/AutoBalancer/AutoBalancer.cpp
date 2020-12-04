@@ -577,6 +577,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     is_stop_mode = false;
     is_hand_fix_mode = false;
+    is_hand_world_fix_mode = false;
 
     use_act_states = false;
     gg->use_act_states = st->use_act_states = true;
@@ -1504,24 +1505,38 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
         if (is_hand_control_while_walking) {
         //if (false) { // Disabled temporarily
             // Store hand_fix_initial_offset in the initialization of walking
-            if (is_hand_fix_initial) hand_fix_initial_offset = tmp_fix_coords.rot.transpose() * (hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos);
+            if (is_hand_fix_initial) {
+              hand_fix_initial_offset = tmp_fix_coords.rot.transpose() * (hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos);
+              hand_fix_initial_coords = tmp_fix_coords;
+              hand_fix_initial_coords.pos += hand_fix_dif_p;
+            }
             is_hand_fix_initial = false;
-            hrp::Vector3 dif_p = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos - tmp_fix_coords.rot * hand_fix_initial_offset;
+            hand_fix_dif_p = hrp::Vector3(gg->get_cog()(0), gg->get_cog()(1), tmp_fix_coords.pos(2)) - tmp_fix_coords.pos - tmp_fix_coords.rot * hand_fix_initial_offset;
+            if (is_hand_world_fix_mode) {
+              hand_fix_dif_p = hand_fix_initial_coords.pos - tmp_fix_coords.pos; // TODO: ignore rotation
+            }
             if (is_hand_fix_mode) {
-                dif_p = tmp_fix_coords.rot.transpose() * dif_p;
-                dif_p(1) = 0;
-                dif_p = tmp_fix_coords.rot * dif_p;
+                hand_fix_dif_p = tmp_fix_coords.rot.transpose() * hand_fix_dif_p;
+                hand_fix_dif_p(1) = 0;
+                hand_fix_dif_p = tmp_fix_coords.rot * hand_fix_dif_p;
             }
             for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
                 if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
                      && it->first.find("arm") != std::string::npos ) {
-                    it->second.target_p0 = it->second.target_p0 + dif_p;
+                    it->second.target_p0 = it->second.target_p0 + hand_fix_dif_p;
                     it->second.handfix_target_p0 = it->second.target_p0;
                 }
             }
             prev_orig_dif_p = orig_dif_p;
-            orig_dif_p = dif_p;
+            orig_dif_p = hand_fix_dif_p;
         }
+    } else if (is_hand_world_fix_mode) {
+      for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
+        if ( it->second.is_active && std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()
+             && it->first.find("arm") != std::string::npos ) {
+          it->second.target_p0 = it->second.target_p0 + hand_fix_dif_p;
+        }
+      }
     } else if (is_after_walking) {
       std::vector<double> start_pos(3), start_vel(3), goal_pos(3);
       double tmp_time = 5.0;
@@ -2093,6 +2108,7 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   limit_cog_interpolator->clear();
   fik->resetCollision();
   hand_fix_interpolator->clear();
+  hand_fix_dif_p = hrp::Vector3::Zero();
   for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
     it->second.is_active = false;
   }
@@ -2814,6 +2830,11 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   if (!gg_is_walking) {
       is_hand_fix_mode = i_param.is_hand_fix_mode;
       std::cerr << "[" << m_profile.instance_name << "]   is_hand_fix_mode = " << is_hand_fix_mode << std::endl;
+      if (hand_fix_dif_p.norm() < 1e-3) {
+        is_hand_world_fix_mode = i_param.is_hand_world_fix_mode;
+      } else {
+        std::cerr << "[" << m_profile.instance_name << "]   is_hand_world_fix_mode cannot be set because (hand position has been changed). Current is_hand_world_fix_mode is " << (is_hand_world_fix_mode?"true":"false") << std::endl;
+      }
   } else {
       std::cerr << "[" << m_profile.instance_name << "]   is_hand_fix_mode cannot be set in (gg_is_walking = true). Current is_hand_fix_mode is " << (is_hand_fix_mode?"true":"false") << std::endl;
   }
@@ -2956,6 +2977,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.leg_names.length(leg_names.size());
   for (size_t i = 0; i < leg_names.size(); i++) i_param.leg_names[i] = leg_names.at(i).c_str();
   i_param.is_hand_fix_mode = is_hand_fix_mode;
+  i_param.is_hand_world_fix_mode = is_hand_world_fix_mode;
   i_param.end_effector_list.length(ikp.size());
   {
       size_t i = 0;
