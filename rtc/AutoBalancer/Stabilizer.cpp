@@ -536,14 +536,24 @@ void Stabilizer::getActualParametersForST ()
     // new ZMP calculation
     // Kajita's feedback law
     //   Basically Equation (26) in the paper [1].
-    hrp::Vector3 dcog=foot_origin_rot * (ref_cog - act_cog);
-    hrp::Vector3 dcogvel=foot_origin_rot * (ref_cogvel - act_cogvel);
-    hrp::Vector3 dzmp=foot_origin_rot * (ref_zmp - act_zmp);
-    new_refzmp = foot_origin_rot * new_refzmp + foot_origin_pos;
-    if (!is_walking || !use_act_states) {
-      for (size_t i = 0; i < 2; i++) {
-        new_refzmp(i) += eefm_k1[i] * transition_smooth_gain * dcog(i) + eefm_k2[i] * transition_smooth_gain * dcogvel(i) + eefm_k3[i] * transition_smooth_gain * dzmp(i) + ref_zmp_aux(i);
-      }
+    bool is_kajita_stabilizer = false;
+    if (is_kajita_stabilizer) {
+        hrp::Vector3 dcog=foot_origin_rot * (ref_cog - act_cog);
+        hrp::Vector3 dcogvel=foot_origin_rot * (ref_cogvel - act_cogvel);
+        hrp::Vector3 dzmp=foot_origin_rot * (ref_zmp - act_zmp);
+        new_refzmp = foot_origin_rot * new_refzmp + foot_origin_pos;
+        if (!is_walking || !use_act_states) {
+            for (size_t i = 0; i < 2; i++) {
+                new_refzmp(i) += eefm_k1[i] * transition_smooth_gain * dcog(i) + eefm_k2[i] * transition_smooth_gain * dcogvel(i) + eefm_k3[i] * transition_smooth_gain * dzmp(i) + ref_zmp_aux(i);
+            }
+        }
+    } else { // foot-guided
+        double T = 1.0;
+        double omega = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+        hrp::Vector3 abs_ref_zmp = foot_origin_pos + foot_origin_rot * ref_zmp;
+        hrp::Vector3 act_xcp = (foot_origin_pos + foot_origin_rot * act_cp) - abs_ref_zmp;
+        hrp::Vector3 dxsp = hrp::Vector3::Zero(); // stay still
+        new_refzmp = abs_ref_zmp + transition_smooth_gain * 2 * (act_xcp - std::exp(- omega * T) * dxsp) / (1 - std::exp(-2 * omega * T));
     }
     if (is_walking) {
       is_after_walking = true;
