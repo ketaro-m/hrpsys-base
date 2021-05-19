@@ -26,6 +26,8 @@
 // Service implementation headers
 // <rtc-template block="service_impl_h">
 #include "ImpedanceControllerService_impl.h"
+#include "../TorqueFilter/IIRFilter.h"
+#include <boost/shared_ptr.hpp>
 
 // </rtc-template>
 
@@ -181,6 +183,8 @@ class ImpedanceController
   std::map<std::string, ee_trans> ee_map;
   std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;
   std::map<std::string, hrp::Vector3> abs_forces, abs_moments, abs_ref_forces, abs_ref_moments;
+  FirstOrderLowPassFilter<hrp::Vector3> ex_force;
+  FirstOrderLowPassFilter<hrp::Vector3> in_force;
   double m_dt;
   hrp::BodyPtr m_robot;
   coil::Mutex m_mutex;

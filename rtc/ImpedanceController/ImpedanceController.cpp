@@ -55,7 +55,9 @@ ImpedanceController::ImpedanceController(RTC::Manager* manager)
       m_robot(hrp::BodyPtr()),
       m_debugLevel(0),
       dummy(0),
-      use_sh_base_pos_rpy(false)
+      use_sh_base_pos_rpy(false),
+      ex_force(50.0, 0.002, hrp::Vector3::Zero()),
+      in_force(50.0, 0.002, hrp::Vector3::Zero())
 {
     m_service0.impedance(this);
 }
@@ -570,6 +572,11 @@ void ImpedanceController::calcForceMoment ()
 
 void ImpedanceController::calcImpedanceControl ()
 {
+    /*double hand mode*/
+    ex_force.passFilter(abs_forces["lhsensor"] + abs_forces["rhsensor"] - (abs_ref_forces["lhsensor"] + abs_ref_forces["rhsensor"]));
+    in_force.passFilter(abs_forces["lhsensor"] - abs_forces["rhsensor"] - (abs_ref_forces["lhsensor"] - abs_ref_forces["rhsensor"]));
+    /*end double hand mode*/
+
     std::map<std::string, ImpedanceParam>::iterator it = m_impedance_param.begin();
     while(it != m_impedance_param.end()){
         ImpedanceParam& param = it->second;
@@ -615,7 +622,18 @@ void ImpedanceController::calcImpedanceControl ()
 
                 // ref_force/ref_moment and force_gain/moment_gain are expressed in global coordinates. 
                 hrp::Matrix33 eeR = target->R * ee_map[it->first].localR;
-                hrp::Vector3 force_diff = abs_forces[it->second.sensor_name] - abs_ref_forces[it->second.sensor_name];
+
+                /* double hand mode */
+                //hrp::Vector3 force_diff = abs_forces[it->second.sensor_name] - abs_ref_forces[it->second.sensor_name];
+                hrp::Vector3 force_diff = hrp::Vector3::Zero();
+                if (it->second.sensor_name == "lhsensor") {
+                    force_diff = (ex_force.getCurrentValue() * 0.5 + in_force.getCurrentValue() * 0.05).array() * hrp::Vector3(1.0, 1.0, 1.0).array();
+                } else if (it->second.sensor_name == "rhsensor") {
+                    force_diff = (ex_force.getCurrentValue() * 0.5 - in_force.getCurrentValue() * 0.05).array() * hrp::Vector3(1.0, 1.0, 1.0).array();
+                }
+                /* end double hand mode */
+
+
                 hrp::Vector3 moment_diff = abs_moments[it->second.sensor_name] - abs_ref_moments[it->second.sensor_name];
                 param.calcTargetVelocity(vel_p, vel_r, eeR, force_diff, moment_diff, m_dt,
                                          DEBUGP, std::string(m_profile.instance_name), it->first);
