@@ -24,8 +24,10 @@ module OpenHRP
           double update_freq;
           /// Update time ratio \in [0,1]
           double update_time_ratio;
-          /// P gain
-          double p_gain;
+          /// P gain for (actaul - ref)
+          double p_gain_act;
+          /// P gain for (ff - ref)
+          double p_gain_ff;
           /// D gain
           double d_gain;
           /// I gain
