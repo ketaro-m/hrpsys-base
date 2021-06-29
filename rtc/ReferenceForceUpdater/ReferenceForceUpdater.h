@@ -189,8 +189,10 @@ class ReferenceForceUpdater
     double p_gain_act;
     // P gain for (ff -ref)
     double p_gain_ff;
-    // D gain
-    double d_gain;
+    // D gain for (actual -ref)
+    double d_gain_act;
+    // D gain for (ff -ref)
+    double d_gain_ff;      
     // I gain
     double i_gain;
     // Transition time[s]
@@ -203,7 +205,7 @@ class ReferenceForceUpdater
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_force_filter;
     void printParam (const std::string print_str)
     {
-        std::cerr << "[" << print_str << "]   p_gain_act = " << p_gain_act << ", p_gain_ff = " << p_gain_ff << ", d_gain = " << d_gain << ", i_gain = " << i_gain << std::endl;
+        std::cerr << "[" << print_str << "]   p_gain_act = " << p_gain_act << ", p_gain_ff = " << p_gain_ff << ", d_gain_act = " << d_gain_act << ", d_gain_ff = " << d_gain_ff  << ", i_gain = " << i_gain << std::endl;
         std::cerr << "[" << print_str << "]   update_freq = " << update_freq << "[Hz], update_count = " << update_count << ", update_time_ratio = " << update_time_ratio << ", transition_time = " << transition_time << "[s], cutoff_freq = " << act_force_filter->getCutOffFreq() << "[Hz]" << std::endl;
         std::cerr << "[" << print_str << "]   motion_dir = " << motion_dir.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << std::endl;
         std::cerr << "[" << print_str << "]   frame = " << frame << ", is_hold_value = " << (is_hold_value?"true":"false") << std::endl;
@@ -216,7 +218,8 @@ class ReferenceForceUpdater
       update_time_ratio = 0.5;
       p_gain_act = 0.02;
       p_gain_ff = 0.02;
-      d_gain = 0;
+      d_gain_act = 0;
+      d_gain_ff = 0;
       i_gain = 0;
       transition_time = 1.0;
       //additional params (not defined in idl)
@@ -247,6 +250,8 @@ class ReferenceForceUpdater
   std::map<std::string, interpolator*> transition_interpolator;
   std::vector<double> transition_interpolator_ratio;
   hrp::Matrix33 foot_origin_rot;
+  std::vector<hrp::Vector3> pre_df_act;
+  std::vector<hrp::Vector3> pre_df_ff;
   bool use_sh_base_pos_rpy;
   int loop;//counter in onExecute
   const std::string footoriginextmoment_name, objextmoment0_name;

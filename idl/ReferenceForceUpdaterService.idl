@@ -28,8 +28,10 @@ module OpenHRP
           double p_gain_act;
           /// P gain for (ff - ref)
           double p_gain_ff;
-          /// D gain
-          double d_gain;
+          /// D gain for (actual - ref)
+          double d_gain_act;
+          /// D gain for (ff - ref)
+          double d_gain_ff;     
           /// I gain
           double i_gain;
           /// Hold current value or not. If is_hold_value is true, do not update value, otherwise, update value.
