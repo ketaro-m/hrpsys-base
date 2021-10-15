@@ -331,10 +331,17 @@ void robot::gain_control(int i)
     double new_pgain=0,new_dgain=0,new_tqpgain=0,new_tqdgain=0;
     if (gain_counter[i] < max_gain_count[i]){
         gain_counter[i]++;
-        new_pgain = (pgain[i]-old_pgain[i])*gain_counter[i]/max_gain_count[i] + old_pgain[i];
-        new_dgain = (dgain[i]-old_dgain[i])*gain_counter[i]/max_gain_count[i] + old_dgain[i];
-        new_tqpgain = (tqpgain[i]-old_tqpgain[i])*gain_counter[i]/max_gain_count[i] + old_tqpgain[i];
-        new_tqdgain = (tqdgain[i]-old_tqdgain[i])*gain_counter[i]/max_gain_count[i] + old_tqdgain[i];
+        if (pgain[i] == 0 || old_pgain[i] == 0 || dgain[i] == 0 || old_dgain[i] == 0 || tqpgain[i] == 0 || old_tqpgain[i] == 0 || tqdgain[i] == 0 || old_tqdgain[i] == 0) {
+          new_pgain = (pgain[i]-old_pgain[i])*gain_counter[i]/max_gain_count[i] + old_pgain[i];
+          new_dgain = (dgain[i]-old_dgain[i])*gain_counter[i]/max_gain_count[i] + old_dgain[i];
+          new_tqpgain = (tqpgain[i]-old_tqpgain[i])*gain_counter[i]/max_gain_count[i] + old_tqpgain[i];
+          new_tqdgain = (tqdgain[i]-old_tqdgain[i])*gain_counter[i]/max_gain_count[i] + old_tqdgain[i];
+        } else {
+          new_pgain = std::exp((std::log(pgain[i])-std::log(old_pgain[i]))*gain_counter[i]/max_gain_count[i] + std::log(old_pgain[i]));
+          new_dgain = std::exp((std::log(dgain[i])-std::log(old_dgain[i]))*gain_counter[i]/max_gain_count[i] + std::log(old_dgain[i]));
+          new_tqpgain = std::exp((std::log(tqpgain[i])-std::log(old_tqpgain[i]))*gain_counter[i]/max_gain_count[i] + std::log(old_tqpgain[i]));
+          new_tqdgain = std::exp((std::log(tqdgain[i])-std::log(old_tqdgain[i]))*gain_counter[i]/max_gain_count[i] + std::log(old_tqdgain[i]));
+        }
         write_pgain(i, new_pgain);
         write_dgain(i, new_dgain);
 #if defined(ROBOT_IOB_VERSION) && ROBOT_IOB_VERSION >= 4
