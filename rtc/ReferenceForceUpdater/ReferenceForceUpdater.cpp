@@ -208,8 +208,7 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
       }
       ee_map.insert(std::pair<std::string, ee_trans>(ee_name , eet));
 
-      if (( ee_name != "rleg" ) && ( ee_name != "lleg" ))
-        m_RFUParam.insert(std::pair<std::string, ReferenceForceUpdaterParam>(ee_name , ReferenceForceUpdaterParam(m_dt)));
+      m_RFUParam.insert(std::pair<std::string, ReferenceForceUpdaterParam>(ee_name , ReferenceForceUpdaterParam(m_dt)));
 
       ee_index_map.insert(std::pair<std::string, size_t>(ee_name, i));
       ref_force.push_back(hrp::Vector3::Zero());
@@ -217,7 +216,7 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
       pre_df_ff.push_back(hrp::Vector3::Zero());
       //ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt)));
       ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
-      if (( ee_name != "lleg" ) && ( ee_name != "rleg" )) transition_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt)));
+      transition_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt)));
       std::cerr << "[" << m_profile.instance_name << "] End Effector [" << ee_name << "]" << ee_target << " " << ee_base << std::endl;
       std::cerr << "[" << m_profile.instance_name << "]   target = " << ee_target << ", base = " << ee_base << ", sensor_name = " << eet.sensor_name << std::endl;
       std::cerr << "[" << m_profile.instance_name << "]   localPos = " << eet.localPos.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[m]" << std::endl;
