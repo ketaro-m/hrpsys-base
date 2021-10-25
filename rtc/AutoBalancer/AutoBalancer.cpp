@@ -502,6 +502,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     st->ref_wrenches.resize(nforce);
     st->limbCOPOffset.resize(nforce);
     prev_ref_forces_balance.resize(nforce);
+    ref_force_balance_gain = 1;
     for (unsigned int i=0; i<npforce; i++){
         sensor_names.push_back(m_robot->sensor(hrp::Sensor::FORCE, i)->name);
     }
@@ -2894,6 +2895,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   gg->set_is_stop_early_foot(is_stop_early_foot);
   arm_swing_deg = i_param.arm_swing_deg;
   debug_read_steppable_region = i_param.debug_read_steppable_region;
+  ref_force_balance_gain = i_param.ref_force_balance_gain;
+  std::cerr << "[" << m_profile.instance_name << "]   ref_force_balance_gain: " << ref_force_balance_gain << std::endl;
   return true;
 };
 
@@ -3751,10 +3754,9 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
 void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height)
 {
   hrp::Vector3 denom, nume;
-  const double ref_force_gain = 0.01;
   std::vector<hrp::Vector3> ref_forces_balance(ref_forces.size());
   for (int i = 0; i < ref_forces.size(); i++) {
-      ref_forces_balance[i] = ref_force_gain * ref_forces[i] + (1 - ref_force_gain) * prev_ref_forces_balance[i];
+      ref_forces_balance[i] = ref_force_balance_gain * ref_forces[i] + (1 - ref_force_balance_gain) * prev_ref_forces_balance[i];
       prev_ref_forces_balance[i] = ref_forces_balance[i];
   }
   /* sb_point[m] = nume[kg * m/s^2 * m] / denom[kg * m/s^2] */

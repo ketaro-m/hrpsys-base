@@ -360,6 +360,7 @@ class AutoBalancer
   hrp::Vector3 sbp_offset, sbp_cog_offset;
   enum {MODE_NO_FORCE, MODE_REF_FORCE, MODE_REF_FORCE_WITH_FOOT, MODE_REF_FORCE_RFU_EXT_MOMENT} use_force;
   std::vector<hrp::Vector3> ref_forces, ref_moments;
+  double ref_force_balance_gain;
   std::vector<hrp::Vector3> prev_ref_forces_balance;
 
   unsigned int m_debugLevel;
