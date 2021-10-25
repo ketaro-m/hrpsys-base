@@ -501,6 +501,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     st->wrenches.resize(nforce);
     st->ref_wrenches.resize(nforce);
     st->limbCOPOffset.resize(nforce);
+    prev_ref_forces_balance.resize(nforce);
     for (unsigned int i=0; i<npforce; i++){
         sensor_names.push_back(m_robot->sensor(hrp::Sensor::FORCE, i)->name);
     }
@@ -3750,12 +3751,18 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
 void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height)
 {
   hrp::Vector3 denom, nume;
+  const double ref_force_gain = 0.01;
+  std::vector<hrp::Vector3> ref_forces_balance(ref_forces.size());
+  for (int i = 0; i < ref_forces.size(); i++) {
+      ref_forces_balance[i] = ref_force_gain * ref_forces[i] + (1 - ref_force_gain) * prev_ref_forces_balance[i];
+      prev_ref_forces_balance[i] = ref_forces_balance[i];
+  }
   /* sb_point[m] = nume[kg * m/s^2 * m] / denom[kg * m/s^2] */
   double mass = m_robot->totalMass();
   double mg = mass * gg->get_gravitational_acceleration();
   hrp::Vector3 total_sensor_ref_force = hrp::Vector3::Zero();
-  for (size_t i = 0; i < ref_forces.size(); i++) {
-      total_sensor_ref_force += ref_forces[i];
+  for (size_t i = 0; i < ref_forces_balance.size(); i++) {
+      total_sensor_ref_force += ref_forces_balance[i];
   }
   hrp::Vector3 total_nosensor_ref_force = mg * hrp::Vector3::UnitZ() - total_sensor_ref_force; // total ref force at the point without sensors, such as torso
   hrp::Vector3 tmp_ext_moment = fix_leg_coords2.pos.cross(total_nosensor_ref_force) + fix_leg_coords2.rot * hrp::Vector3(m_refFootOriginExtMoment.data.x, m_refFootOriginExtMoment.data.y, m_refFootOriginExtMoment.data.z);
@@ -3782,9 +3789,9 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
                 size_t idx = contact_states_index_map[it->first];
                 // Force applied point is assumed as end effector
                 hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
-                nume(j) += ( (fpos(2) - ref_com_height) * ref_forces[idx](j) - fpos(j) * ref_forces[idx](2) );
+                nume(j) += ( (fpos(2) - ref_com_height) * ref_forces_balance[idx](j) - fpos(j) * ref_forces_balance[idx](2) );
                 nume(j) += (j==0 ? ref_moments[idx](1):-ref_moments[idx](0));
-                denom(j) -= ref_forces[idx](2);
+                denom(j) -= ref_forces_balance[idx](2);
             }
         }
         if ( use_force == MODE_REF_FORCE_WITH_FOOT ) {
