@@ -501,7 +501,6 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     st->wrenches.resize(nforce);
     st->ref_wrenches.resize(nforce);
     st->limbCOPOffset.resize(nforce);
-    prev_ref_forces_balance.resize(nforce);
     ref_force_balance_gain = 1;
     for (unsigned int i=0; i<npforce; i++){
         sensor_names.push_back(m_robot->sensor(hrp::Sensor::FORCE, i)->name);
@@ -519,6 +518,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         registerInPort(std::string("ref_"+sensor_names[i]).c_str(), *m_ref_forceIn[i]);
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("ref_"+sensor_names[i]) << std::endl;
         ref_forces.push_back(hrp::Vector3(0,0,0));
+        prev_ref_forces_balance.push_back(hrp::Vector3(0,0,0));
         ref_moments.push_back(hrp::Vector3(0,0,0));
         // actual inport
         m_wrenchesIn[i] = new InPort<TimedDoubleSeq>(sensor_names[i].c_str(), m_wrenches[i]);
