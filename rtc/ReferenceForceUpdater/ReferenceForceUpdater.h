@@ -192,7 +192,7 @@ class ReferenceForceUpdater
     // D gain for (actual -ref)
     double d_gain_act;
     // D gain for (ff -ref)
-    double d_gain_ff;      
+    double d_gain_ff;
     // I gain
     double i_gain;
     // Transition time[s]
