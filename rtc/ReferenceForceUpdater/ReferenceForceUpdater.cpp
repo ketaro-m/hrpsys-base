@@ -665,30 +665,33 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     d_df_ff = df_ff - pre_df_ff[arm_idx];
     pre_df_act[arm_idx] = df_act;
     pre_df_ff[arm_idx] = df_ff;
-    double inner_product_act = 0;
-    double inner_product_ff = 0;
-    double d_inner_product_act = 0;
-    double d_inner_product_ff = 0;
 
     if ( ! std::fabs((abs_motion_dir.norm() - 0.0)) < 1e-5 ) {
+        hrp::Matrix33 S = abs_motion_dir.asDiagonal();
         abs_motion_dir.normalize();
-        inner_product_act = df_act.dot(abs_motion_dir);
-        inner_product_ff = df_ff.dot(abs_motion_dir);
-        d_inner_product_act = d_df_act.dot(abs_motion_dir);
-        d_inner_product_ff = d_df_ff.dot(abs_motion_dir);
-        if ( ! (inner_product_act < 0 && ref_force[arm_idx].dot(abs_motion_dir) < 0.0) ) {
-            hrp::Vector3 in_f = ee_rot * internal_force;
-            if (!m_RFUParam[arm].is_hold_value)
-                ref_force[arm_idx] = ref_force[arm_idx].dot(abs_motion_dir) * abs_motion_dir + in_f + ((m_RFUParam[arm].p_gain_act * inner_product_act + m_RFUParam[arm].p_gain_ff * inner_product_ff + m_RFUParam[arm].d_gain_act * d_inner_product_act + m_RFUParam[arm].d_gain_ff * d_inner_product_ff) * transition_interpolator_ratio[arm_idx]) * abs_motion_dir;
-            interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
-            if ( ref_force_interpolator[arm]->isEmpty() ) {
-                ref_force_interpolator[arm]->setGoal(ref_force[arm_idx].data(), interpolation_time, true);
+        hrp::Vector3 selected_act = S * df_act;
+        hrp::Vector3 selected_ff = S * df_ff;
+        hrp::Vector3 d_selected_act = S * d_df_act;
+        hrp::Vector3 d_selected_ff = S * d_df_ff;
+        for (int i = 0; i < 3; i += 1) {
+            if (selected_act[i] < 0.0 && ref_force[arm_idx][i] * abs_motion_dir[i] < 0.0) {
+                selected_act[i] = selected_ff[i] = d_selected_act[i] = d_selected_ff[i] = 0;
             }
+        }
+        hrp::Vector3 in_f = ee_rot * internal_force;
+        if (!m_RFUParam[arm].is_hold_value)
+            ref_force[arm_idx] = S * ref_force[arm_idx] + in_f +
+                ((m_RFUParam[arm].p_gain_act * selected_act + m_RFUParam[arm].d_gain_act * d_selected_act
+                  + m_RFUParam[arm].p_gain_ff * selected_ff + m_RFUParam[arm].d_gain_ff * d_selected_ff)
+                 * transition_interpolator_ratio[arm_idx]);
+        interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
+        if ( ref_force_interpolator[arm]->isEmpty() ) {
+            ref_force_interpolator[arm]->setGoal(ref_force[arm_idx].data(), interpolation_time, true);
         }
     }
     if ( DEBUGP ) {
         std::cerr << "[" << m_profile.instance_name << "] Updating reference force [" << arm << "]" << std::endl;
-        std::cerr << "[" << m_profile.instance_name << "]   inner_product_act = " << inner_product_act << "[N], inner_product_ff = " << inner_product_ff << "[N], ref_force = " << ref_force[arm_idx].dot(abs_motion_dir) << "[N], interpolation_time = " << interpolation_time << "[s]" << std::endl;
+        std::cerr << "[" << m_profile.instance_name << "]   ref_force = " << ref_force[arm_idx].dot(abs_motion_dir) << "[N], interpolation_time = " << interpolation_time << "[s]" << std::endl;
         std::cerr << "[" << m_profile.instance_name << "]   new ref_force = " << ref_force[arm_idx].format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[N]" << std::endl;
         std::cerr << "[" << m_profile.instance_name << "]   filtered act_force = " << m_RFUParam[arm].act_force_filter->getCurrentValue().format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[N]" << std::endl;
         std::cerr << "[" << m_profile.instance_name << "]   df_act = " << df_act.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[N], df_ff = " << df_ff.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[N]" << std::endl;
