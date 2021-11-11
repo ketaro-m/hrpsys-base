@@ -976,6 +976,8 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abc, 'originActCog')
             self.connectLoggerPort(self.abc, 'originActCogVel')
             self.connectLoggerPort(self.abc, 'tau')
+            for sen in filter(lambda x: x.type == "Force", self.sensors):
+                self.connectLoggerPort(self.abc, "sbp_ref_"+sen.name+"Out")
         if self.st != None:
             self.connectLoggerPort(self.st, 'zmp')
             self.connectLoggerPort(self.st, 'originRefZmp')

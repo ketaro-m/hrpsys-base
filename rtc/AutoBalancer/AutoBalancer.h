@@ -243,6 +243,9 @@ class AutoBalancer
   OutPort<TimedPoint3D> m_originActZmpOut, m_originActCogOut, m_originActCogVelOut;
   OpenHRP::TimedSteppableRegion m_currentSteppableRegion;
   OutPort<OpenHRP::TimedSteppableRegion> m_currentSteppableRegionOut;
+  std::vector<TimedDoubleSeq> m_ref_force_balance;
+  std::vector<OutPort<TimedDoubleSeq> *> m_ref_force_balanceOut;
+
 
   
   // </rtc-template>

@@ -491,9 +491,11 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     }
 
     m_ref_force.resize(nforce);
+    m_ref_force_balance.resize(nforce);
     m_ref_forceIn.resize(nforce);
     m_force.resize(nforce);
     m_ref_forceOut.resize(nforce);
+    m_ref_force_balanceOut.resize(nforce);
     m_limbCOPOffset.resize(nforce);
     m_limbCOPOffsetOut.resize(nforce);
     m_wrenches.resize(nforce);
@@ -536,6 +538,15 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         m_force[i].data[3] = m_force[i].data[4] = m_force[i].data[5] = 0.0;
         registerOutPort(std::string(sensor_names[i]).c_str(), *m_ref_forceOut[i]);
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string(sensor_names[i]) << std::endl;
+    }
+    // set ref force balance port
+    for (unsigned int i=0; i<nforce; i++){
+        m_ref_force_balanceOut[i] = new OutPort<TimedDoubleSeq>(std::string("sbp_ref_"+sensor_names[i]+"Out").c_str(), m_ref_force_balance[i]);
+        m_ref_force_balance[i].data.length(6);
+        m_ref_force_balance[i].data[0] = m_ref_force_balance[i].data[1] = m_ref_force_balance[i].data[2] = 0.0;
+        m_ref_force_balance[i].data[3] = m_ref_force_balance[i].data[4] = m_ref_force_balance[i].data[5] = 0.0;
+        registerOutPort(std::string("ref_"+sensor_names[i]+"Out").c_str(), *m_ref_force_balanceOut[i]);
+        std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("sbp_ref_"+sensor_names[i]+"Out") << std::endl;
     }
     // set limb cop offset port
     std::cerr << "[" << m_profile.instance_name << "] limbCOPOffset ports (" << nforce << ")" << std::endl;
@@ -1052,6 +1063,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       for (unsigned int i=0; i<m_ref_forceOut.size(); i++){
           m_force[i].tm = m_qRef.tm;
           m_ref_forceOut[i]->write();
+      }
+
+      for (unsigned int i=0; i<m_ref_force_balanceOut.size(); i++){
+          m_ref_force_balance[i].tm = m_qRef.tm;
+          m_ref_force_balanceOut[i]->write();
       }
 
       for (unsigned int i=0; i<m_limbCOPOffsetOut.size(); i++){
@@ -3759,6 +3775,11 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
   for (int i = 0; i < ref_forces.size(); i++) {
       ref_forces_balance[i] = ref_force_balance_gain * ref_forces[i] + (1 - ref_force_balance_gain) * prev_ref_forces_balance[i];
       prev_ref_forces_balance[i] = ref_forces_balance[i];
+  }
+  for (int i = 0; i < ref_forces_balance.size(); i++) {
+      for (int j = 0; j < ref_forces_balance.size(); j++) {
+        m_ref_force_balance[i].data[j] = ref_forces_balance[i][j];
+      }
   }
   /* sb_point[m] = nume[kg * m/s^2 * m] / denom[kg * m/s^2] */
   double mass = m_robot->totalMass();
