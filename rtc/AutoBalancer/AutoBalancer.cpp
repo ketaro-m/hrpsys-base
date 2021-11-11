@@ -2988,6 +2988,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.is_stop_early_foot = is_stop_early_foot;
   i_param.arm_swing_deg = arm_swing_deg;
   i_param.debug_read_steppable_region = debug_read_steppable_region;
+  i_param.ref_force_balance_gain = ref_force_balance_gain;
   return true;
 };
 
