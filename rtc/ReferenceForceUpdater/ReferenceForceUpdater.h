@@ -217,7 +217,7 @@ class ReferenceForceUpdater
       update_freq = 50; // Hz
       update_time_ratio = 0.5;
       p_gain_act = 0.02;
-      p_gain_ff = 0.02;
+      p_gain_ff = 0;
       d_gain_act = 0;
       d_gain_ff = 0;
       i_gain = 0;
