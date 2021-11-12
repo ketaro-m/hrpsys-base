@@ -166,6 +166,13 @@ void printData(std::ostream& os, double data, unsigned int precision = 0)
     LOG_UNSET_PRECISION(os);
 }
 
+void printData(std::ostream& os, int data, unsigned int precision = 0)
+{
+    LOG_SET_PRECISION(os);
+    os << data << " ";
+    LOG_UNSET_PRECISION(os);
+}
+
 void printData(std::ostream& os, const OpenHRP::RobotHardwareService::RobotState2& data, unsigned int precision = 0)
 {
   printData(os, data.angle, precision);
@@ -398,7 +405,14 @@ bool DataLogger::add(const char *i_type, const char *i_name)
   }  
 
   LoggerPortBase *new_port=NULL;
-  if (strcmp(i_type, "TimedDoubleSeq")==0){
+  if (strcmp(i_type, "TimedLong")==0){
+      LoggerPort<TimedLong> *lp = new LoggerPort<TimedLong>(i_name);
+      new_port = lp;
+      if (!addInPort(i_name, lp->port())) {
+          resumeLogging();
+          return false;
+      }
+  }else if (strcmp(i_type, "TimedDoubleSeq")==0){
       LoggerPort<TimedDoubleSeq> *lp = new LoggerPort<TimedDoubleSeq>(i_name);
       new_port = lp;
       if (!addInPort(i_name, lp->port())) {
