@@ -996,6 +996,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.el, 'q')
         if self.es != None:
             self.connectLoggerPort(self.es, 'q')
+            self.connectLoggerPort(self.es, 'emergencyMode')
         if self.rh != None:
             self.connectLoggerPort(self.rh, 'emergencySignal',
                                    'emergencySignal')
