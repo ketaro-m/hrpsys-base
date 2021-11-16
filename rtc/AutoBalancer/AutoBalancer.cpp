@@ -1474,6 +1474,28 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
     //   If arms' ABCIKparam.is_active is true, move hands according to cog velocity.
     //   If is_hand_fix_mode is false, no hand fix mode and move hands according to cog velocity.
     //   If is_hand_fix_mode is true, hand fix mode and do not move hands in Y axis in tmp_fix_coords.rot.
+    static bool init = true;
+    if (init) {
+      for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin();
+           it != ikp.end(); it++) {
+        it->second.now_dest_p = it->second.target_p0;
+        it->second.pre_dest_p = it->second.target_p0;
+        it->second.pre_p = it->second.target_p0;
+        it->second.now_dest_r = it->second.target_r0;
+        it->second.pre_dest_r = it->second.target_r0;
+        it->second.pre_r = it->second.target_r0;
+      }
+      init = false;
+    }
+
+    for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
+        std::cerr << "limb: " << it->first << " is_active: " << it->second.is_active
+                << " find in leg_names : "
+                  << (std::find(leg_names.begin(), leg_names.end(), it->first) ==
+                      leg_names.end()) << " find arm: " << (it->first.find("arm") !=
+                                                        std::string::npos) << std::endl;
+    }
+
     if (gg_is_walking) {
         // hand control while walking = solve hand ik with is_hand_fix_mode and solve hand ik without is_hand_fix_mode
         bool is_hand_control_while_walking = false;
@@ -1492,6 +1514,8 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             if (is_hand_fix_mode) {
                 dif_p = tmp_fix_coords.rot.transpose() * dif_p;
                 dif_p(1) = 0;
+                dif_p(0) = dif_p(2) = 0;
+                std::cerr << "hand fix mode" << std::endl;
                 dif_p = tmp_fix_coords.rot * dif_p;
             }
             for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
@@ -1525,6 +1549,31 @@ void AutoBalancer::updateTargetCoordsForHandFixMode (coordinates& tmp_fix_coords
             it->second.target_p0(i) = it->second.target_p0(i) + tmp_v[i];
           }
         }
+      }
+    }
+
+    //low pass filter
+    // std::cerr << "in front of lpf" << std::endl;
+    float ft = 0.0 * m_dt;
+    for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin();
+         it != ikp.end(); it++) {
+      if (it->second.is_active &&
+          std::find(leg_names.begin(), leg_names.end(), it->first) ==
+              leg_names.end() &&
+          it->first.find("arm") != std::string::npos) {
+        std::cerr << "target_p0: " << it->second.target_p0.transpose()
+                  << std::endl;
+        it->second.now_dest_p = it->second.target_p0;
+        it->second.target_p0 = it->second.pre_p * (1.0 - ft) +
+                               it->second.pre_dest_p * ft; // low pass filter
+        it->second.pre_p = it->second.target_p0;
+        it->second.pre_dest_p = it->second.now_dest_p;
+
+        it->second.now_dest_r = it->second.target_r0;
+        it->second.target_r0 = it->second.pre_r * (1.0 - ft) +
+                               it->second.pre_dest_r * ft; // low pass filter
+        it->second.pre_r = it->second.target_r0;
+        it->second.pre_dest_r = it->second.now_dest_r;
       }
     }
 };
@@ -2190,6 +2239,11 @@ bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSeq
       std::cerr << "[" << m_profile.instance_name << "] Cannot startAutobalancer while gg_is_waking is true. Please goStop or wait for ending previous goPos." << std::endl;
       return false;
     }
+    std::cerr << "limbs length: " << limbs.length();
+    for (int i = 0; i < limbs.length(); i += 1) {
+        std::cerr << ", " << limbs[i];
+    }
+    std::cerr << std::endl;
     fik->resetIKFailParam();
     startABCparam(limbs);
     waitABCTransition();
