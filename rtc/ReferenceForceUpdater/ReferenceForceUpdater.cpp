@@ -673,9 +673,10 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
         hrp::Vector3 selected_ff = S * df_ff;
         hrp::Vector3 d_selected_act = S * d_df_act;
         hrp::Vector3 d_selected_ff = S * d_df_ff;
+        // not update ref-force into act-force when act-force is negative in motion_dir
         for (int i = 0; i < 3; i += 1) {
             if (selected_act[i] < 0.0 && ref_force[arm_idx][i] * abs_motion_dir[i] < 0.0) {
-                selected_act[i] = selected_ff[i] = d_selected_act[i] = d_selected_ff[i] = 0;
+                selected_act[i] = d_selected_act[i] = 0;
             }
         }
         hrp::Vector3 in_f = ee_rot * internal_force;
