@@ -2833,7 +2833,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
       if (hand_fix_dif_p.norm() < 1e-3) {
         is_hand_world_fix_mode = i_param.is_hand_world_fix_mode;
       } else {
-        std::cerr << "[" << m_profile.instance_name << "]   is_hand_world_fix_mode cannot be set because (hand position has been changed). Current is_hand_world_fix_mode is " << (is_hand_world_fix_mode?"true":"false") << std::endl;
+        std::cerr << "[" << m_profile.instance_name << "]   is_hand_world_fix_mode cannot be set because hand position has been changed ( hand_fix_dif_p: "
+                  << hand_fix_dif_p.transpose() << "). Current is_hand_world_fix_mode is " << (is_hand_world_fix_mode ? "true" : "false") << std::endl;
       }
   } else {
       std::cerr << "[" << m_profile.instance_name << "]   is_hand_fix_mode cannot be set in (gg_is_walking = true). Current is_hand_fix_mode is " << (is_hand_fix_mode?"true":"false") << std::endl;
