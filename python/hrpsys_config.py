@@ -465,10 +465,10 @@ class HrpsysConfigurator(object):
                              self.st.port(sen + "Ref"))
                 connectPorts(self.abc.port("limbCOPOffset_"+sen),
                              self.st.port("limbCOPOffset_"+sen))
-            if self.rfu:
-                ref_force_port_from = self.rfu.port("ref_"+sen+"Out")
-            elif self.es:
+            if self.es:
                 ref_force_port_from = self.es.port(sen+"Out")
+            elif self.rfu:
+                ref_force_port_from = self.rfu.port("ref_"+sen+"Out")
             else:
                 ref_force_port_from = self.sh.port(sen+"Out")
             if self.ic:
@@ -477,16 +477,16 @@ class HrpsysConfigurator(object):
             if self.abc:
                 connectPorts(ref_force_port_from,
                              self.abc.port("ref_" + sen))
-            if self.es:
+                if self.rfu:
                 connectPorts(self.sh.port(sen+"Out"),
-                             self.es.port(sen+"In"))
-                if self.rfu:
-                    connectPorts(self.es.port(sen+"Out"),
                                  self.rfu.port("ref_" + sen+"In"))
+                if self.es:
+                    connectPorts(self.rfu.port("ref_" + sen+"Out"),
+                                 self.es.port(sen+"In"))
             else:
-                if self.rfu:
+                if self.es:
                     connectPorts(self.sh.port(sen+"Out"),
-                                 self.rfu.port("ref_" + sen+"In"))
+                                 self.es.port(sen+"In"))
 
         #  actual force sensors
         if self.rmfo:
@@ -521,8 +521,7 @@ class HrpsysConfigurator(object):
                 connectPorts(self.sh.port("baseRpyOut"), self.ic.port("baseRpyIn"))
         # connection for rfu
         if self.rfu:
-            if self.es:
-                connectPorts(self.es.port("q"), self.rfu.port("qRef"))
+            connectPorts(self.sh.port("qOut"), self.rfu.port("qRef"))
             if StrictVersion(self.seq_version) >= StrictVersion('315.3.0'):
                 connectPorts(self.sh.port("basePosOut"), self.rfu.port("basePosIn"))
                 connectPorts(self.sh.port("baseRpyOut"), self.rfu.port("baseRpyIn"))

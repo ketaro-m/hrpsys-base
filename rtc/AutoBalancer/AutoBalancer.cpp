@@ -2615,6 +2615,7 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->is_slow_stair_mode = i_param.is_slow_stair_mode;
   gg->stair_step_time = i_param.stair_step_time;
   gg->num_preview_step = i_param.num_preview_step;
+  gg->set_rectangle_time_smooth_offset(i_param.rectangle_time_smooth_offset);
 
   // print
   gg->print_param(std::string(m_profile.instance_name));
@@ -2753,6 +2754,7 @@ bool AutoBalancer::getGaitGeneratorParam(OpenHRP::AutoBalancerService::GaitGener
   i_param.is_slow_stair_mode = gg->is_slow_stair_mode;
   i_param.stair_step_time = gg->stair_step_time;
   i_param.num_preview_step = gg->num_preview_step;
+  i_param.rectangle_time_smooth_offset = gg->get_rectangle_time_smooth_offset();
   return true;
 };
 

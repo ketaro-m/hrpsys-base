@@ -296,6 +296,7 @@ namespace rats
       std::vector< std::vector<leg_type> > swing_leg_types_list; // Swing leg list according to refzmp_cur_list
       std::vector<size_t> step_count_list; // Swing leg list according to refzmp_cur_list
       std::vector<toe_heel_types> toe_heel_types_list;
+      toe_heel_types cur_toe_heel_types;
       std::vector<hrp::Vector3> default_zmp_offsets; /* list of RLEG and LLEG */
       size_t refzmp_index, refzmp_count, one_step_count;
       double toe_zmp_offset_x, heel_zmp_offset_x; // [m]
@@ -336,7 +337,10 @@ namespace rats
         while ( foot_x_axises_list.size() > len) foot_x_axises_list.pop_back();
         while ( swing_leg_types_list.size() > len) swing_leg_types_list.pop_back();
         while ( step_count_list.size() > len) step_count_list.pop_back();
-        while ( toe_heel_types_list.size() > len) toe_heel_types_list.pop_back();
+        while ( toe_heel_types_list.size() > len) {
+          if (toe_heel_types_list.size() == len + 1) cur_toe_heel_types = toe_heel_types_list.back();
+          toe_heel_types_list.pop_back();
+        }
       };
       void reset (const size_t _refzmp_count)
       {
@@ -388,6 +392,7 @@ namespace rats
       double get_heel_zmp_offset_x () const { return heel_zmp_offset_x; };
       bool get_use_toe_heel_transition () const { return use_toe_heel_transition; };
       bool get_use_toe_heel_auto_set () const { return use_toe_heel_auto_set; };
+      toe_heel_types get_cur_toe_heel_types () const { return cur_toe_heel_types; };
       const std::map<leg_type, double> get_zmp_weight_map () const { return zmp_weight_map; };
       void proc_zmp_weight_map_interpolation () {
           if (!zmp_weight_interpolator->isEmpty()) {
@@ -429,10 +434,11 @@ namespace rats
       swing_phase_type spt;
       virtual double calc_antecedent_path (const hrp::Vector3& start, const hrp::Vector3& goal, const double height, const hrp::Vector3& current) = 0;
     public:
-      delay_hoffarbib_trajectory_generator () : time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0), one_step_count(0), current_count(0), double_support_count_before(0), double_support_count_after(0), goal_off(hrp::Vector3::Zero()), is_early_touch(false) {};
+      delay_hoffarbib_trajectory_generator () : time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0), one_step_count(0), current_count(0), double_support_count_before(0), double_support_count_after(0), goal_off(hrp::Vector3::Zero()), is_early_touch(false), time_smooth_offset(2.0) {};
       ~delay_hoffarbib_trajectory_generator() { };
       bool is_touch_ground, is_single_walking, is_early_touch;
       hrp::Vector3 goal_off;
+      double time_smooth_offset;
       void set_dt (const double _dt) { dt = _dt; };
       void set_swing_trajectory_delay_time_offset (const double _time_offset) { time_offset = _time_offset; };
       void set_swing_trajectory_final_distance_weight (const double _final_distance_weight) { final_distance_weight = _final_distance_weight; };
@@ -474,12 +480,13 @@ namespace rats
           size_t swing_one_step_count = one_step_count - double_support_count_before - double_support_count_after;
           double final_path_distance_ratio = calc_antecedent_path(start, goal, height, current);
           size_t tmp_time_offset_count = time_offset/dt;
-          size_t final_path_count = final_path_distance_ratio * swing_one_step_count;
           // XYZ interpolation
           if (static_cast<double>(swing_remain_count) / static_cast<double>(swing_one_step_count) <= 0.5 && spt == LIFTOFF) spt = TOUCHDOWN;
           if (swing_remain_count > tmp_time_offset_count) { // antecedent path is still interpolating
-            hrp::Vector3 tmpgoal = interpolate_antecedent_path(static_cast<double>(tmp_time_offset_count) / static_cast<double>(swing_remain_count));
-            for (size_t i = 0; i < 3; i++) hoffarbib_interpolation (pos(i), vel(i), acc(i), time_offset, tmpgoal(i));
+            double tmp_ratio = static_cast<double>(tmp_time_offset_count) / static_cast<double>(swing_remain_count); // ~0 -> 1
+            hrp::Vector3 tmpgoal = interpolate_antecedent_path(tmp_ratio);
+            for (size_t i = 0; i < 2; i++) hoffarbib_interpolation (pos(i), vel(i), acc(i), (tmp_ratio + (1 - tmp_ratio) * time_smooth_offset) * time_offset, tmpgoal(i)); // time_smooth_offset is to make xy swing movement slower at first
+            hoffarbib_interpolation (pos(2), vel(2), acc(2), time_offset, tmpgoal(2));
           } else { // antecedent path already reached to goal
             hrp::Vector3 tmp_goal = goal;
             hrp::Vector3 tmp_vel = hrp::Vector3::Zero();
@@ -589,7 +596,6 @@ namespace rats
         std::vector<hrp::Vector3> rectangle_path;
         double max_height = std::max(start(2), goal(2))+height;
         hrp::Vector3 diff_vec = goal - start;
-        diff_vec(2) = 0.0;
         rectangle_path.push_back(current);
         switch (spt) {
         case LIFTOFF:
@@ -779,6 +785,7 @@ namespace rats
       toe_heel_type current_src_toe_heel_type, current_dst_toe_heel_type;
       std::vector<bool> act_contact_states;
       bool is_touch_ground, use_act_states, is_single_walking, is_stop_early_foot;
+      double rectangle_time_smooth_offset;
       int touch_ground_count;
       void calc_current_swing_foot_rot (std::map<leg_type, hrp::Vector3>& tmp_swing_foot_rot, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
       void calc_current_swing_leg_steps (std::vector<step_node>& rets, const double step_height, const double _current_toe_angle, const double _current_heel_angle, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
@@ -808,7 +815,7 @@ namespace rats
           time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0),
           footstep_index(0), lcg_count(0), swing_rot_count_ratio(0.1), default_orbit_type(CYCLOID),
           rdtg(), rectangle_way_point_offset(0.05, 0.0, 0.0), rectangle_goal_off(hrp::Vector3::Zero()), cdtg(),
-          thp(), use_act_states(true), is_stop_early_foot(false),
+          thp(), use_act_states(true), is_stop_early_foot(false), rectangle_time_smooth_offset(2.0),
           foot_midcoords_interpolator(NULL), swing_foot_rot_interpolator(), toe_heel_interpolator(NULL),
           toe_pos_offset_x(0.0), heel_pos_offset_x(0.0), toe_angle(0.0), heel_angle(0.0), foot_dif_rot_angle(0.0), toe_heel_dif_angle(0.0), use_toe_joint(false), use_toe_heel_auto_set(false),
           current_src_toe_heel_type(SOLE), current_dst_toe_heel_type(SOLE)
@@ -878,6 +885,7 @@ namespace rats
       void set_stair_trajectory_way_point_offset (const hrp::Vector3 _offset) { sdtg.set_stair_trajectory_way_point_offset(_offset); };
       void set_rectangle_trajectory_way_point_offset (const hrp::Vector3 _offset) { rectangle_way_point_offset = _offset; };
       void set_rectangle_goal_off (const hrp::Vector3 _offset) { rectangle_goal_off = _offset; };
+      void set_rectangle_time_smooth_offset (const double _offset) { rectangle_time_smooth_offset = _offset; };
       void set_cycloid_delay_kick_point_offset (const hrp::Vector3 _offset) { cdktg.set_cycloid_delay_kick_point_offset(_offset); };
       void set_toe_pos_offset_x (const double _offx) { toe_pos_offset_x = _offx; };
       void set_heel_pos_offset_x (const double _offx) { heel_pos_offset_x = _offx; };
@@ -1074,6 +1082,7 @@ namespace rats
       hrp::Vector3 get_stair_trajectory_way_point_offset () const { return sdtg.get_stair_trajectory_way_point_offset(); };
       hrp::Vector3 get_rectangle_trajectory_way_point_offset () const { return rectangle_way_point_offset; };
       hrp::Vector3 get_rectangle_goal_off () const { return rectangle_goal_off; };
+      double get_rectangle_time_smooth_offset () const { return rectangle_time_smooth_offset; };
       hrp::Vector3 get_cycloid_delay_kick_point_offset () const { return cdktg.get_cycloid_delay_kick_point_offset() ; };
       double get_toe_pos_offset_x () const { return toe_pos_offset_x; };
       double get_heel_pos_offset_x () const { return heel_pos_offset_x; };
@@ -1647,6 +1656,7 @@ namespace rats
     void set_stair_trajectory_way_point_offset (const hrp::Vector3 _offset) { lcg.set_stair_trajectory_way_point_offset(_offset); };
     void set_rectangle_trajectory_way_point_offset (const hrp::Vector3 _offset) { lcg.set_rectangle_trajectory_way_point_offset(_offset); };
     void set_rectangle_goal_off (const hrp::Vector3 _offset) { lcg.set_rectangle_goal_off(_offset); };
+    void set_rectangle_time_smooth_offset(const double _offset) { lcg.set_rectangle_time_smooth_offset(_offset); };
     void set_cycloid_delay_kick_point_offset (const hrp::Vector3 _offset) { lcg.set_cycloid_delay_kick_point_offset(_offset); };
     void set_gravitational_acceleration (const double ga) { gravitational_acceleration = ga; };
     void set_toe_pos_offset_x (const double _offx) { lcg.set_toe_pos_offset_x(_offx); };
@@ -1952,6 +1962,7 @@ namespace rats
     hrp::Vector3 get_stair_trajectory_way_point_offset () const { return lcg.get_stair_trajectory_way_point_offset(); };
     hrp::Vector3 get_rectangle_trajectory_way_point_offset () const { return lcg.get_rectangle_trajectory_way_point_offset(); };
     hrp::Vector3 get_rectangle_goal_off () const { return lcg.get_rectangle_goal_off(); };
+    double get_rectangle_time_smooth_offset () const { return lcg.get_rectangle_time_smooth_offset(); };
     hrp::Vector3 get_cycloid_delay_kick_point_offset () const { return lcg.get_cycloid_delay_kick_point_offset(); };
     double get_gravitational_acceleration () const { return gravitational_acceleration; } ;
     double get_toe_pos_offset_x () const { return lcg.get_toe_pos_offset_x(); };

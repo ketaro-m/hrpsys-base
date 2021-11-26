@@ -351,6 +351,7 @@ module OpenHRP
       boolean is_slow_stair_mode;
       double stair_step_time;
       long num_preview_step;
+      double rectangle_time_smooth_offset;
     };
 
     /**
