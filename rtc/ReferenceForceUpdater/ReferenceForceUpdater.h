@@ -203,6 +203,7 @@ class ReferenceForceUpdater
     int update_count;
     bool is_active, is_stopping, is_hold_value;
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_force_filter;
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_moment_filter;
     void printParam (const std::string print_str)
     {
         std::cerr << "[" << print_str << "]   p_gain_act = " << p_gain_act << ", p_gain_ff = " << p_gain_ff << ", d_gain_act = " << d_gain_act << ", d_gain_ff = " << d_gain_ff  << ", i_gain = " << i_gain << std::endl;
@@ -235,6 +236,7 @@ class ReferenceForceUpdater
       update_count = round((1/update_freq)/_dt);
       double default_cutoff_freq = 1e8;
       act_force_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(default_cutoff_freq, _dt, hrp::Vector3::Zero()));
+      act_moment_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(default_cutoff_freq, _dt, hrp::Vector3::Zero()));
     };
   };
   std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;
@@ -246,7 +248,9 @@ class ReferenceForceUpdater
   std::map<std::string, size_t> ee_index_map;
   std::map<std::string, ReferenceForceUpdaterParam> m_RFUParam;
   std::vector<hrp::Vector3> ref_force;
+  std::vector<hrp::Vector3> ref_moment;
   std::map<std::string, interpolator*> ref_force_interpolator;
+  std::map<std::string, interpolator*> ref_moment_interpolator;
   std::map<std::string, interpolator*> transition_interpolator;
   std::vector<double> transition_interpolator_ratio;
   hrp::Matrix33 foot_origin_rot;
