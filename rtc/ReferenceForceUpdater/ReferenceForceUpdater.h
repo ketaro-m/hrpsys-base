@@ -195,6 +195,8 @@ class ReferenceForceUpdater
     double d_gain_ff;
     // I gain
     double i_gain;
+    // P gain for moment (actual - ref)
+    double moment_p_gain_act;
     // Transition time[s]
     double transition_time;
     // Motion direction to update reference force

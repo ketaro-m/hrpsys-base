@@ -233,9 +233,10 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
         m_RFUParam[ee_name].update_count = 1; // update in every control loop, round((1/rfu_param.update_freq)/m_dt)
         m_RFUParam[ee_name].update_time_ratio = 1.0;
         m_RFUParam[ee_name].p_gain_act = 0.003;
-        m_RFUParam[ee_name].p_gain_ff = 0.003;
-        m_RFUParam[ee_name].d_gain_act = 0.01;
-        m_RFUParam[ee_name].d_gain_ff = 0.01;
+        m_RFUParam[ee_name].p_gain_ff = 0;
+        m_RFUParam[ee_name].d_gain_act = 0;
+        m_RFUParam[ee_name].d_gain_ff = 0;
+        m_RFUParam[ee_name].moment_p_gain_act = 0;
         m_RFUParam[ee_name].act_force_filter->setCutOffFreq(25.0); // [Hz]
         ee_trans eet;
         eet.localPos = hrp::Vector3::Zero();
@@ -707,7 +708,7 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
                 ((m_RFUParam[arm].p_gain_act * selected_act + m_RFUParam[arm].d_gain_act * d_selected_act
                   + m_RFUParam[arm].p_gain_ff * selected_ff + m_RFUParam[arm].d_gain_ff * d_selected_ff)
                  * transition_interpolator_ratio[arm_idx]);
-            ref_moment[arm_idx] = ref_moment[arm_idx] + in_f + m_RFUParam[arm].p_gain_act * dm_act;
+            ref_moment[arm_idx] = ref_moment[arm_idx] + in_f + m_RFUParam[arm].moment_p_gain_act * dm_act;
         }
         interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
         if ( ref_force_interpolator[arm]->isEmpty() ) {
@@ -803,6 +804,7 @@ bool ReferenceForceUpdater::setReferenceForceUpdaterParam(const std::string& i_n
   m_RFUParam[arm].d_gain_act = i_param.d_gain_act;
   m_RFUParam[arm].d_gain_ff = i_param.d_gain_ff;
   m_RFUParam[arm].i_gain = i_param.i_gain;
+  m_RFUParam[arm].moment_p_gain_act = i_param.moment_p_gain_act;
   m_RFUParam[arm].is_hold_value = i_param.is_hold_value;
   m_RFUParam[arm].transition_time = i_param.transition_time;
   m_RFUParam[arm].act_force_filter->setCutOffFreq(i_param.cutoff_freq);
@@ -828,6 +830,7 @@ bool ReferenceForceUpdater::getReferenceForceUpdaterParam(const std::string& i_n
   i_param->d_gain_act = m_RFUParam[arm].d_gain_act;
   i_param->d_gain_ff = m_RFUParam[arm].d_gain_ff;
   i_param->i_gain = m_RFUParam[arm].i_gain;
+  i_param->moment_p_gain_act = m_RFUParam[arm].moment_p_gain_act;
   i_param->update_freq = m_RFUParam[arm].update_freq;
   i_param->update_time_ratio = m_RFUParam[arm].update_time_ratio;
   i_param->frame = m_RFUParam[arm].frame.c_str();
