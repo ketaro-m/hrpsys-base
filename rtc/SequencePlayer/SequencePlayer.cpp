@@ -820,6 +820,10 @@ bool SequencePlayer::setInterpolationMode(OpenHRP::SequencePlayerService::interp
         new_mode = interpolator::LINEAR;
     }else if (i_mode_ == OpenHRP::SequencePlayerService::HOFFARBIB){
         new_mode = interpolator::HOFFARBIB;
+    }else if (i_mode_ == OpenHRP::SequencePlayerService::QUINTICSPLINE){
+        new_mode = interpolator::QUINTICSPLINE;
+    }else if (i_mode_ == OpenHRP::SequencePlayerService::CUBICSPLINE){
+        new_mode = interpolator::CUBICSPLINE;
     }else{
         return false;
     }

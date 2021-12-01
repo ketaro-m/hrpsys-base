@@ -14,7 +14,9 @@ module OpenHRP
 
     enum  interpolationMode {
       LINEAR, 	///< linear interpolation
-      HOFFARBIB ///< minimum jerk interpolation by Hoff & Arbib
+      HOFFARBIB, ///< minimum jerk interpolation by Hoff & Arbib
+      QUINTICSPLINE,
+      CUBICSPLINE
     };
     
     /**
