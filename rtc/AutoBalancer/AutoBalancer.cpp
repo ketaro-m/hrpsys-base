@@ -504,6 +504,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     st->ref_wrenches.resize(nforce);
     st->limbCOPOffset.resize(nforce);
     ref_force_balance_gain = 1;
+    ref_moment_balance_gain = 1;
     for (unsigned int i=0; i<npforce; i++){
         sensor_names.push_back(m_robot->sensor(hrp::Sensor::FORCE, i)->name);
     }
@@ -522,6 +523,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         ref_forces.push_back(hrp::Vector3(0,0,0));
         prev_ref_forces_balance.push_back(hrp::Vector3(0,0,0));
         ref_moments.push_back(hrp::Vector3(0,0,0));
+        prev_ref_moments_balance.push_back(hrp::Vector3(0,0,0));
         // actual inport
         m_wrenchesIn[i] = new InPort<TimedDoubleSeq>(sensor_names[i].c_str(), m_wrenches[i]);
         m_wrenches[i].data.length(6);
@@ -2936,7 +2938,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   arm_swing_deg = i_param.arm_swing_deg;
   debug_read_steppable_region = i_param.debug_read_steppable_region;
   ref_force_balance_gain = i_param.ref_force_balance_gain;
-  std::cerr << "[" << m_profile.instance_name << "]   ref_force_balance_gain: " << ref_force_balance_gain << std::endl;
+  ref_moment_balance_gain = i_param.ref_moment_balance_gain;
+  std::cerr << "[" << m_profile.instance_name << "]   ref_force_balance_gain: " << ref_force_balance_gain << ",  ref_moment_balance_gain: " << ref_moment_balance_gain << std::endl;
   return true;
 };
 
@@ -3030,6 +3033,7 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.arm_swing_deg = arm_swing_deg;
   i_param.debug_read_steppable_region = debug_read_steppable_region;
   i_param.ref_force_balance_gain = ref_force_balance_gain;
+  i_param.ref_moment_balance_gain = ref_moment_balance_gain;
   return true;
 };
 
@@ -3796,15 +3800,20 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
 void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height)
 {
   hrp::Vector3 denom, nume;
-  std::vector<hrp::Vector3> ref_forces_balance(ref_forces.size());
+  std::vector<hrp::Vector3> ref_forces_balance(ref_forces.size()), ref_moments_balance(ref_moments.size());
   for (int i = 0; i < ref_forces.size(); i++) {
       ref_forces_balance[i] = ref_force_balance_gain * ref_forces[i] + (1 - ref_force_balance_gain) * prev_ref_forces_balance[i];
       prev_ref_forces_balance[i] = ref_forces_balance[i];
+      ref_moments_balance[i] = ref_moment_balance_gain * ref_moments[i] + (1 - ref_moment_balance_gain) * prev_ref_moments_balance[i];
+      prev_ref_moments_balance[i] = ref_moments_balance[i];
   }
   // output to port
   for (int i = 0; i < ref_forces_balance.size(); i++) {
       for (int j = 0; j < ref_forces_balance[0].size(); j++) {
         m_ref_force_balance[i].data[j] = ref_forces_balance[i][j];
+      }
+      for (int j = 0; j < ref_moments_balance[0].size(); j++) {
+        m_ref_force_balance[i].data[j+ref_forces_balance[0].size()] = ref_moments_balance[i][j];
       }
   }
   /* sb_point[m] = nume[kg * m/s^2 * m] / denom[kg * m/s^2] */
@@ -3840,7 +3849,7 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
                 // Force applied point is assumed as end effector
                 hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
                 nume(j) += ( (fpos(2) - ref_com_height) * ref_forces_balance[idx](j) - fpos(j) * ref_forces_balance[idx](2) );
-                nume(j) += (j==0 ? ref_moments[idx](1):-ref_moments[idx](0));
+                nume(j) += (j==0 ? ref_moments_balance[idx](1):-ref_moments_balance[idx](0));
                 denom(j) -= ref_forces_balance[idx](2);
             }
         }
