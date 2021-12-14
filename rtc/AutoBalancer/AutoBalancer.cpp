@@ -521,9 +521,9 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         registerInPort(std::string("ref_"+sensor_names[i]).c_str(), *m_ref_forceIn[i]);
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("ref_"+sensor_names[i]) << std::endl;
         ref_forces.push_back(hrp::Vector3(0,0,0));
-        prev_ref_forces_balance.push_back(hrp::Vector3(0,0,0));
+        ref_forces_balance.push_back(hrp::Vector3(0,0,0));
         ref_moments.push_back(hrp::Vector3(0,0,0));
-        prev_ref_moments_balance.push_back(hrp::Vector3(0,0,0));
+        ref_moments_balance.push_back(hrp::Vector3(0,0,0));
         // actual inport
         m_wrenchesIn[i] = new InPort<TimedDoubleSeq>(sensor_names[i].c_str(), m_wrenches[i]);
         m_wrenches[i].data.length(6);
@@ -3800,12 +3800,9 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
 void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height)
 {
   hrp::Vector3 denom, nume;
-  std::vector<hrp::Vector3> ref_forces_balance(ref_forces.size()), ref_moments_balance(ref_moments.size());
   for (int i = 0; i < ref_forces.size(); i++) {
-      ref_forces_balance[i] = ref_force_balance_gain * ref_forces[i] + (1 - ref_force_balance_gain) * prev_ref_forces_balance[i];
-      prev_ref_forces_balance[i] = ref_forces_balance[i];
-      ref_moments_balance[i] = ref_moment_balance_gain * ref_moments[i] + (1 - ref_moment_balance_gain) * prev_ref_moments_balance[i];
-      prev_ref_moments_balance[i] = ref_moments_balance[i];
+      ref_forces_balance[i] = ref_force_balance_gain * ref_forces[i] + (1 - ref_force_balance_gain) * ref_forces_balance[i];
+      ref_moments_balance[i] = ref_moment_balance_gain * ref_moments[i] + (1 - ref_moment_balance_gain) * ref_moments_balance[i];
   }
   // output to port
   for (int i = 0; i < ref_forces_balance.size(); i++) {

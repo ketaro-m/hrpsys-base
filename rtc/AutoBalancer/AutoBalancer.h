@@ -364,7 +364,7 @@ class AutoBalancer
   enum {MODE_NO_FORCE, MODE_REF_FORCE, MODE_REF_FORCE_WITH_FOOT, MODE_REF_FORCE_RFU_EXT_MOMENT} use_force;
   std::vector<hrp::Vector3> ref_forces, ref_moments;
   double ref_force_balance_gain, ref_moment_balance_gain;
-  std::vector<hrp::Vector3> prev_ref_forces_balance, prev_ref_moments_balance;
+  std::vector<hrp::Vector3> ref_forces_balance, ref_moments_balance;
 
   unsigned int m_debugLevel;
   bool is_legged_robot, is_stop_mode, is_hand_fix_mode, is_hand_fix_initial, is_hand_world_fix_mode;
