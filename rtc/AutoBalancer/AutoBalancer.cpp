@@ -3801,8 +3801,9 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
       ref_forces_balance[i] = ref_force_balance_gain * ref_forces[i] + (1 - ref_force_balance_gain) * prev_ref_forces_balance[i];
       prev_ref_forces_balance[i] = ref_forces_balance[i];
   }
+  // output to port
   for (int i = 0; i < ref_forces_balance.size(); i++) {
-      for (int j = 0; j < ref_forces_balance.size(); j++) {
+      for (int j = 0; j < ref_forces_balance[0].size(); j++) {
         m_ref_force_balance[i].data[j] = ref_forces_balance[i][j];
       }
   }
