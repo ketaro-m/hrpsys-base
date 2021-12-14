@@ -215,6 +215,8 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
       ref_moment.push_back(hrp::Vector3::Zero());
       pre_df_act.push_back(hrp::Vector3::Zero());
       pre_df_ff.push_back(hrp::Vector3::Zero());
+      pre_dm_act.push_back(hrp::Vector3::Zero());
+      pre_dm_ff.push_back(hrp::Vector3::Zero());
       //ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt)));
       ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
       ref_moment_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
@@ -237,6 +239,9 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
         m_RFUParam[ee_name].d_gain_act = 0;
         m_RFUParam[ee_name].d_gain_ff = 0;
         m_RFUParam[ee_name].moment_p_gain_act = 0;
+        m_RFUParam[ee_name].moment_p_gain_ff = 0;
+        m_RFUParam[ee_name].moment_d_gain_act = 0;
+        m_RFUParam[ee_name].moment_d_gain_ff = 0;
         m_RFUParam[ee_name].act_force_filter->setCutOffFreq(25.0); // [Hz]
         ee_trans eet;
         eet.localPos = hrp::Vector3::Zero();
@@ -657,7 +662,7 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     double interpolation_time = 0;
     size_t arm_idx = ee_index_map[arm];
     hrp::Link* target_link = m_robot->link(ee_map[arm].target_name);
-    hrp::Vector3 abs_motion_dir, df_act, df_ff, d_df_act, d_df_ff, dm_act;
+    hrp::Vector3 abs_motion_dir, df_act, df_ff, d_df_act, d_df_ff, dm_act, dm_ff, d_dm_act, d_dm_ff;
     hrp::Matrix33 ee_rot;
     ee_rot = target_link->R * ee_map[arm].localR;
     if ( m_RFUParam[arm].frame=="local" )
@@ -675,12 +680,9 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
         rats::mid_rot(current_foot_mid_rot, 0.5, foot_rot[0], foot_rot[1]);
         abs_motion_dir = current_foot_mid_rot * m_RFUParam[arm].motion_dir;
     }
-    // Calc abs force diff
+    // Calc abs force/moment diff
     hrp::Vector3 ff_ref_force = hrp::Vector3(m_ref_force_in[arm_idx].data[0], m_ref_force_in[arm_idx].data[1], m_ref_force_in[arm_idx].data[2]);
-    // std::cerr << "arm_idx" << arm_idx << std::endl;
-    // std::cerr << "ff_ref_force: " << ff_ref_force.transpose() << std::endl;
-    // std::cerr << "measured force: " << (m_RFUParam[arm].act_force_filter->getCurrentValue()).transpose() << std::endl;
-    // std::cerr << "current ref_force: " << ref_force[arm_idx].transpose() << std::endl;
+    hrp::Vector3 ff_ref_moment = hrp::Vector3(m_ref_force_in[arm_idx].data[3], m_ref_force_in[arm_idx].data[4], m_ref_force_in[arm_idx].data[5]);
     df_act = m_RFUParam[arm].act_force_filter->getCurrentValue() - ref_force[arm_idx];
     df_ff = ff_ref_force - ref_force[arm_idx];
     d_df_act = df_act - pre_df_act[arm_idx];
@@ -688,6 +690,11 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     pre_df_act[arm_idx] = df_act;
     pre_df_ff[arm_idx] = df_ff;
     dm_act = m_RFUParam[arm].act_moment_filter->getCurrentValue() - ref_moment[arm_idx];
+    dm_ff = ff_ref_moment - ref_moment[arm_idx];
+    d_dm_act = dm_act - pre_dm_act[arm_idx];
+    d_dm_ff = dm_ff - pre_dm_ff[arm_idx];
+    pre_dm_act[arm_idx] = dm_act;
+    pre_dm_ff[arm_idx] = dm_ff;
 
     if ( ! std::fabs((abs_motion_dir.norm() - 0.0)) < 1e-5 ) {
         hrp::Matrix33 S = abs_motion_dir.asDiagonal();
@@ -708,7 +715,10 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
                 ((m_RFUParam[arm].p_gain_act * selected_act + m_RFUParam[arm].d_gain_act * d_selected_act
                   + m_RFUParam[arm].p_gain_ff * selected_ff + m_RFUParam[arm].d_gain_ff * d_selected_ff)
                  * transition_interpolator_ratio[arm_idx]);
-            ref_moment[arm_idx] = ref_moment[arm_idx] + in_f + m_RFUParam[arm].moment_p_gain_act * dm_act;
+            ref_moment[arm_idx] = ref_moment[arm_idx] + in_f +
+                ((m_RFUParam[arm].moment_p_gain_act * dm_act + m_RFUParam[arm].moment_d_gain_act * d_dm_act
+                  + m_RFUParam[arm].moment_p_gain_ff * dm_ff + m_RFUParam[arm].moment_d_gain_ff * d_dm_ff)
+                 * transition_interpolator_ratio[arm_idx]);
         }
         interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
         if ( ref_force_interpolator[arm]->isEmpty() ) {
@@ -805,6 +815,9 @@ bool ReferenceForceUpdater::setReferenceForceUpdaterParam(const std::string& i_n
   m_RFUParam[arm].d_gain_ff = i_param.d_gain_ff;
   m_RFUParam[arm].i_gain = i_param.i_gain;
   m_RFUParam[arm].moment_p_gain_act = i_param.moment_p_gain_act;
+  m_RFUParam[arm].moment_p_gain_ff = i_param.moment_p_gain_ff;
+  m_RFUParam[arm].moment_d_gain_act = i_param.moment_d_gain_act;
+  m_RFUParam[arm].moment_d_gain_ff = i_param.moment_d_gain_ff;
   m_RFUParam[arm].is_hold_value = i_param.is_hold_value;
   m_RFUParam[arm].transition_time = i_param.transition_time;
   m_RFUParam[arm].act_force_filter->setCutOffFreq(i_param.cutoff_freq);
@@ -831,6 +844,9 @@ bool ReferenceForceUpdater::getReferenceForceUpdaterParam(const std::string& i_n
   i_param->d_gain_ff = m_RFUParam[arm].d_gain_ff;
   i_param->i_gain = m_RFUParam[arm].i_gain;
   i_param->moment_p_gain_act = m_RFUParam[arm].moment_p_gain_act;
+  i_param->moment_p_gain_ff = m_RFUParam[arm].moment_p_gain_ff;
+  i_param->moment_d_gain_act = m_RFUParam[arm].moment_d_gain_act;
+  i_param->moment_d_gain_ff = m_RFUParam[arm].moment_d_gain_ff;
   i_param->update_freq = m_RFUParam[arm].update_freq;
   i_param->update_time_ratio = m_RFUParam[arm].update_time_ratio;
   i_param->frame = m_RFUParam[arm].frame.c_str();

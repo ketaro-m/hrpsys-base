@@ -197,6 +197,12 @@ class ReferenceForceUpdater
     double i_gain;
     // P gain for moment (actual - ref)
     double moment_p_gain_act;
+    // P gain for moment (ff - ref)
+    double moment_p_gain_ff;
+    // D gain for moment (actual - ref)
+    double moment_d_gain_act;
+    // D gain for moment (ff - ref)
+    double moment_d_gain_ff;
     // Transition time[s]
     double transition_time;
     // Motion direction to update reference force
@@ -258,6 +264,8 @@ class ReferenceForceUpdater
   hrp::Matrix33 foot_origin_rot;
   std::vector<hrp::Vector3> pre_df_act;
   std::vector<hrp::Vector3> pre_df_ff;
+  std::vector<hrp::Vector3> pre_dm_act;
+  std::vector<hrp::Vector3> pre_dm_ff;
   bool use_sh_base_pos_rpy;
   int loop;//counter in onExecute
   const std::string footoriginextmoment_name, objextmoment0_name;
