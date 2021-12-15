@@ -662,7 +662,7 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     double interpolation_time = 0;
     size_t arm_idx = ee_index_map[arm];
     hrp::Link* target_link = m_robot->link(ee_map[arm].target_name);
-    hrp::Vector3 abs_motion_dir, df_act, df_ff, d_df_act, d_df_ff, dm_act, dm_ff, d_dm_act, d_dm_ff;
+    hrp::Vector3 abs_motion_dir, abs_motion_dir_norm, df_act, df_ff, d_df_act, d_df_ff, dm_act, dm_ff, d_dm_act, d_dm_ff;
     hrp::Matrix33 ee_rot;
     ee_rot = target_link->R * ee_map[arm].localR;
     if ( m_RFUParam[arm].frame=="local" )
@@ -696,34 +696,44 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     pre_dm_act[arm_idx] = dm_act;
     pre_dm_ff[arm_idx] = dm_ff;
 
-    if ( ! std::fabs((abs_motion_dir.norm() - 0.0)) < 1e-5 ) {
-        hrp::Matrix33 S = abs_motion_dir.asDiagonal();
-        abs_motion_dir.normalize();
-        hrp::Vector3 selected_act = S * df_act;
-        hrp::Vector3 selected_ff = S * df_ff;
-        hrp::Vector3 d_selected_act = S * d_df_act;
-        hrp::Vector3 d_selected_ff = S * d_df_ff;
-        // not update ref-force into act-force when act-force is negative in motion_dir
-        for (int i = 0; i < 3; i += 1) {
-            if (selected_act[i] < 0.0 && ref_force[arm_idx][i] * abs_motion_dir[i] < 0.0) {
-                selected_act[i] = d_selected_act[i] = 0;
-            }
+    // exclude axis whose gain is too small
+    // and create abs_motion_dir_norm
+    for (int i = 0; i < abs_motion_dir.size(); i++) {
+        if (std::fabs(abs_motion_dir[i]) < 1e-5) {
+            abs_motion_dir[i] = 0.0;
+            abs_motion_dir_norm[i] = 0.0;
+        } else if (std::signbit(abs_motion_dir[i])) {
+            abs_motion_dir_norm[i] = -1.0;
+        } else {
+            abs_motion_dir_norm[i] = 1.0;
         }
-        hrp::Vector3 in_f = ee_rot * internal_force;
-        if (!m_RFUParam[arm].is_hold_value) {
-            ref_force[arm_idx] = S * ref_force[arm_idx] + in_f +
-                ((m_RFUParam[arm].p_gain_act * selected_act + m_RFUParam[arm].d_gain_act * d_selected_act
-                  + m_RFUParam[arm].p_gain_ff * selected_ff + m_RFUParam[arm].d_gain_ff * d_selected_ff)
-                 * transition_interpolator_ratio[arm_idx]);
-            ref_moment[arm_idx] = ref_moment[arm_idx] + in_f +
-                ((m_RFUParam[arm].moment_p_gain_act * dm_act + m_RFUParam[arm].moment_d_gain_act * d_dm_act
-                  + m_RFUParam[arm].moment_p_gain_ff * dm_ff + m_RFUParam[arm].moment_d_gain_ff * d_dm_ff)
-                 * transition_interpolator_ratio[arm_idx]);
-        }
-        interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
-        if ( ref_force_interpolator[arm]->isEmpty() ) {
-            ref_force_interpolator[arm]->setGoal(ref_force[arm_idx].data(), interpolation_time, true);
-        }
+    }
+    hrp::Matrix33 S_weight = abs_motion_dir.asDiagonal();    // selection matrix with weight
+    hrp::Matrix33 S_bool = abs_motion_dir_norm.asDiagonal(); // selection matrix without weight (0, -1, +1)
+    hrp::Vector3 selected_act = S_weight * df_act;
+    hrp::Vector3 selected_ff = S_weight * df_ff;
+    hrp::Vector3 d_selected_act = S_weight * d_df_act;
+    hrp::Vector3 d_selected_ff = S_weight * d_df_ff;
+    // not update ref-force into act-force when act-force is negative in motion_dir
+    for (int i = 0; i < 3; i += 1) {
+      if ((S_bool * selected_act)[i] < 0.0 && (S_bool * ref_force[arm_idx])[i] < 0.0) {
+        selected_act[i] = d_selected_act[i] = 0;
+      }
+    }
+    hrp::Vector3 in_f = ee_rot * internal_force;
+    if (!m_RFUParam[arm].is_hold_value) {
+        ref_force[arm_idx] = S_bool * ref_force[arm_idx] + in_f +
+            ((m_RFUParam[arm].p_gain_act * selected_act + m_RFUParam[arm].d_gain_act * d_selected_act
+              + m_RFUParam[arm].p_gain_ff * selected_ff + m_RFUParam[arm].d_gain_ff * d_selected_ff)
+             * transition_interpolator_ratio[arm_idx]);
+        ref_moment[arm_idx] = ref_moment[arm_idx] + in_f +
+            ((m_RFUParam[arm].moment_p_gain_act * dm_act + m_RFUParam[arm].moment_d_gain_act * d_dm_act
+              + m_RFUParam[arm].moment_p_gain_ff * dm_ff + m_RFUParam[arm].moment_d_gain_ff * d_dm_ff)
+             * transition_interpolator_ratio[arm_idx]);
+    }
+    interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
+    if ( ref_force_interpolator[arm]->isEmpty() ) {
+        ref_force_interpolator[arm]->setGoal(ref_force[arm_idx].data(), interpolation_time, true);
     }
     if ( DEBUGP ) {
         std::cerr << "[" << m_profile.instance_name << "] Updating reference force [" << arm << "]" << std::endl;
