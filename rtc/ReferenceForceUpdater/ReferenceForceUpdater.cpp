@@ -615,7 +615,7 @@ void ReferenceForceUpdater::updateRefFootOriginExtMoment (const std::string& arm
 
 void ReferenceForceUpdater::updateRefObjExtMoment0 (const std::string& arm)
 {
-    std::cerr << "updateRefObjExtMoment" << std::endl;    
+    std::cerr << "updateRefObjExtMoment" << std::endl;
     size_t arm_idx = ee_index_map[arm];
     size_t rarm_idx = ee_index_map["rarm"];
     size_t larm_idx = ee_index_map["larm"];
