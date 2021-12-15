@@ -186,23 +186,23 @@ class ReferenceForceUpdater
     // Update time ratio \in [0,1]
     double update_time_ratio;
     // P gain for (actual - ref)
-    double p_gain_act;
+    hrp::Vector3 p_gain_act;
     // P gain for (ff -ref)
-    double p_gain_ff;
+    hrp::Vector3 p_gain_ff;
     // D gain for (actual -ref)
-    double d_gain_act;
+    hrp::Vector3 d_gain_act;
     // D gain for (ff -ref)
-    double d_gain_ff;
+    hrp::Vector3 d_gain_ff;
     // I gain
-    double i_gain;
+    hrp::Vector3 i_gain;
     // P gain for moment (actual - ref)
-    double moment_p_gain_act;
+    hrp::Vector3 moment_p_gain_act;
     // P gain for moment (ff - ref)
-    double moment_p_gain_ff;
+    hrp::Vector3 moment_p_gain_ff;
     // D gain for moment (actual - ref)
-    double moment_d_gain_act;
+    hrp::Vector3 moment_d_gain_act;
     // D gain for moment (ff - ref)
-    double moment_d_gain_ff;
+    hrp::Vector3 moment_d_gain_ff;
     // Transition time[s]
     double transition_time;
     // Motion direction to update reference force
@@ -214,7 +214,7 @@ class ReferenceForceUpdater
     boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_moment_filter;
     void printParam (const std::string print_str)
     {
-        std::cerr << "[" << print_str << "]   p_gain_act = " << p_gain_act << ", p_gain_ff = " << p_gain_ff << ", d_gain_act = " << d_gain_act << ", d_gain_ff = " << d_gain_ff  << ", i_gain = " << i_gain << std::endl;
+        std::cerr << "[" << print_str << "]   p_gain_act = " << p_gain_act.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << ", p_gain_ff = " << p_gain_ff.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << ", d_gain_act = " << d_gain_act.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << ", d_gain_ff = " << d_gain_ff.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]"))  << ", i_gain = " << i_gain.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << std::endl;
         std::cerr << "[" << print_str << "]   update_freq = " << update_freq << "[Hz], update_count = " << update_count << ", update_time_ratio = " << update_time_ratio << ", transition_time = " << transition_time << "[s], cutoff_freq = " << act_force_filter->getCutOffFreq() << "[Hz]" << std::endl;
         std::cerr << "[" << print_str << "]   motion_dir = " << motion_dir.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << std::endl;
         std::cerr << "[" << print_str << "]   frame = " << frame << ", is_hold_value = " << (is_hold_value?"true":"false") << std::endl;
@@ -225,11 +225,15 @@ class ReferenceForceUpdater
       frame="local";
       update_freq = 50; // Hz
       update_time_ratio = 0.5;
-      p_gain_act = 0.02;
-      p_gain_ff = 0;
-      d_gain_act = 0;
-      d_gain_ff = 0;
-      i_gain = 0;
+      p_gain_act = hrp::Vector3::Zero();
+      d_gain_ff  = hrp::Vector3::Zero();
+      p_gain_act = hrp::Vector3::Zero();
+      d_gain_ff  = hrp::Vector3::Zero();
+      i_gain     = hrp::Vector3::Zero();
+      moment_p_gain_act = hrp::Vector3::Zero();
+      moment_p_gain_ff  = hrp::Vector3::Zero();
+      moment_d_gain_act = hrp::Vector3::Zero();
+      moment_d_gain_ff  = hrp::Vector3::Zero();
       transition_time = 1.0;
       //additional params (not defined in idl)
       is_active = false;

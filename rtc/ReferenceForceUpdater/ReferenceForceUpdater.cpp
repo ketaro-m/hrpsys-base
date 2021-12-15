@@ -234,14 +234,15 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
         m_RFUParam[ee_name].update_freq = 1/m_dt; // [Hz], update in every control loop
         m_RFUParam[ee_name].update_count = 1; // update in every control loop, round((1/rfu_param.update_freq)/m_dt)
         m_RFUParam[ee_name].update_time_ratio = 1.0;
-        m_RFUParam[ee_name].p_gain_act = 0.003;
-        m_RFUParam[ee_name].p_gain_ff = 0;
-        m_RFUParam[ee_name].d_gain_act = 0;
-        m_RFUParam[ee_name].d_gain_ff = 0;
-        m_RFUParam[ee_name].moment_p_gain_act = 0;
-        m_RFUParam[ee_name].moment_p_gain_ff = 0;
-        m_RFUParam[ee_name].moment_d_gain_act = 0;
-        m_RFUParam[ee_name].moment_d_gain_ff = 0;
+        m_RFUParam[ee_name].p_gain_act = hrp::Vector3(0.3, 0.3, 0.3);
+        m_RFUParam[ee_name].p_gain_ff = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].d_gain_act = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].d_gain_ff = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].i_gain = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].moment_p_gain_act = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].moment_p_gain_ff = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].moment_d_gain_act = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].moment_d_gain_ff = hrp::Vector3::Zero();
         m_RFUParam[ee_name].act_force_filter->setCutOffFreq(25.0); // [Hz]
         ee_trans eet;
         eet.localPos = hrp::Vector3::Zero();
@@ -600,7 +601,7 @@ void ReferenceForceUpdater::updateRefFootOriginExtMoment (const std::string& arm
     size_t arm_idx = ee_index_map[arm];
     hrp::Vector3 df = m_RFUParam[arm].act_force_filter->getCurrentValue();
     if (!m_RFUParam[arm].is_hold_value)
-        ref_force[arm_idx] = ref_force[arm_idx] + (m_RFUParam[arm].p_gain_act * transition_interpolator_ratio[arm_idx]) * df;
+        ref_force[arm_idx] = ref_force[arm_idx] + (m_RFUParam[arm].p_gain_act * transition_interpolator_ratio[arm_idx]).cwiseProduct(df);
     interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
     if ( ref_force_interpolator[arm]->isEmpty() ) {
         ref_force_interpolator[arm]->setGoal(ref_force[arm_idx].data(), interpolation_time, true);
@@ -633,7 +634,7 @@ void ReferenceForceUpdater::updateRefObjExtMoment0 (const std::string& arm)
         df(2) -= diff_larm_force(2);
     }
     if (!m_RFUParam[arm].is_hold_value) {
-        ref_force[arm_idx] += hrp::Vector3(0,0,((m_RFUParam[arm].p_gain_act * transition_interpolator_ratio[arm_idx]) * df)(2));
+        ref_force[arm_idx] += hrp::Vector3(0,0,((m_RFUParam[arm].p_gain_act(2) * transition_interpolator_ratio[arm_idx]) * df)(2));
     }
     double interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
     if ( ref_force_interpolator[arm]->isEmpty() ) {
@@ -726,13 +727,17 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     hrp::Vector3 in_f = ee_rot * internal_force;
     if (!m_RFUParam[arm].is_hold_value) {
         ref_force[arm_idx] = S_bool * ref_force[arm_idx] + in_f +
-            ((m_RFUParam[arm].p_gain_act * selected_act + m_RFUParam[arm].d_gain_act * d_selected_act
-              + m_RFUParam[arm].p_gain_ff * selected_ff + m_RFUParam[arm].d_gain_ff * d_selected_ff)
-             * transition_interpolator_ratio[arm_idx]);
+            (m_RFUParam[arm].p_gain_act.cwiseProduct(selected_act) +
+             m_RFUParam[arm].d_gain_act.cwiseProduct(d_selected_act) +
+             m_RFUParam[arm].p_gain_ff.cwiseProduct(selected_ff) +
+             m_RFUParam[arm].d_gain_ff.cwiseProduct(d_selected_ff))
+            * transition_interpolator_ratio[arm_idx];
         ref_moment[arm_idx] = ref_moment[arm_idx] + in_f +
-            ((m_RFUParam[arm].moment_p_gain_act * dm_act + m_RFUParam[arm].moment_d_gain_act * d_dm_act
-              + m_RFUParam[arm].moment_p_gain_ff * dm_ff + m_RFUParam[arm].moment_d_gain_ff * d_dm_ff)
-             * transition_interpolator_ratio[arm_idx]);
+            (m_RFUParam[arm].moment_p_gain_act.cwiseProduct(dm_act) +
+             m_RFUParam[arm].moment_d_gain_act.cwiseProduct(d_dm_act) +
+             m_RFUParam[arm].moment_p_gain_ff.cwiseProduct(dm_ff) +
+             m_RFUParam[arm].moment_d_gain_ff.cwiseProduct(d_dm_ff))
+            * transition_interpolator_ratio[arm_idx];
     }
     interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
     if ( ref_force_interpolator[arm]->isEmpty() ) {
@@ -822,15 +827,17 @@ bool ReferenceForceUpdater::setReferenceForceUpdaterParam(const std::string& i_n
       m_RFUParam[arm].frame=std::string(i_param.frame);
   }
   // Parameters which can be changed regardless of active/inactive
-  m_RFUParam[arm].p_gain_act = i_param.p_gain_act;
-  m_RFUParam[arm].p_gain_ff = i_param.p_gain_ff;
-  m_RFUParam[arm].d_gain_act = i_param.d_gain_act;
-  m_RFUParam[arm].d_gain_ff = i_param.d_gain_ff;
-  m_RFUParam[arm].i_gain = i_param.i_gain;
-  m_RFUParam[arm].moment_p_gain_act = i_param.moment_p_gain_act;
-  m_RFUParam[arm].moment_p_gain_ff = i_param.moment_p_gain_ff;
-  m_RFUParam[arm].moment_d_gain_act = i_param.moment_d_gain_act;
-  m_RFUParam[arm].moment_d_gain_ff = i_param.moment_d_gain_ff;
+  for (size_t i = 0; i < 3; i++ ) {
+      m_RFUParam[arm].p_gain_act(i)        = i_param.p_gain_act[i];
+      m_RFUParam[arm].p_gain_ff(i)         = i_param.p_gain_ff[i];
+      m_RFUParam[arm].d_gain_act(i)        = i_param.d_gain_act[i];
+      m_RFUParam[arm].d_gain_ff(i)         = i_param.d_gain_ff[i];
+      m_RFUParam[arm].i_gain(i)            = i_param.i_gain[1];
+      m_RFUParam[arm].moment_p_gain_act(i) = i_param.moment_p_gain_act[i];
+      m_RFUParam[arm].moment_p_gain_ff(i)  = i_param.moment_p_gain_ff[i];
+      m_RFUParam[arm].moment_d_gain_act(i) = i_param.moment_d_gain_act[i];
+      m_RFUParam[arm].moment_d_gain_ff(i)  = i_param.moment_d_gain_ff[i];
+  }
   m_RFUParam[arm].is_hold_value = i_param.is_hold_value;
   m_RFUParam[arm].transition_time = i_param.transition_time;
   m_RFUParam[arm].act_force_filter->setCutOffFreq(i_param.cutoff_freq);
@@ -851,15 +858,17 @@ bool ReferenceForceUpdater::getReferenceForceUpdaterParam(const std::string& i_n
     return false;
   }
   Guard guard(m_mutex);
-  i_param->p_gain_act = m_RFUParam[arm].p_gain_act;
-  i_param->p_gain_ff = m_RFUParam[arm].p_gain_ff;
-  i_param->d_gain_act = m_RFUParam[arm].d_gain_act;
-  i_param->d_gain_ff = m_RFUParam[arm].d_gain_ff;
-  i_param->i_gain = m_RFUParam[arm].i_gain;
-  i_param->moment_p_gain_act = m_RFUParam[arm].moment_p_gain_act;
-  i_param->moment_p_gain_ff = m_RFUParam[arm].moment_p_gain_ff;
-  i_param->moment_d_gain_act = m_RFUParam[arm].moment_d_gain_act;
-  i_param->moment_d_gain_ff = m_RFUParam[arm].moment_d_gain_ff;
+  for (size_t i = 0; i < 3; i++ ) {
+      i_param->p_gain_act[i]        = m_RFUParam[arm].p_gain_act(i);
+      i_param->p_gain_ff[i]         = m_RFUParam[arm].p_gain_ff(i);
+      i_param->d_gain_act[i]        = m_RFUParam[arm].d_gain_act(i);
+      i_param->d_gain_ff[i]         = m_RFUParam[arm].d_gain_ff(i);
+      i_param->i_gain[i]            = m_RFUParam[arm].i_gain(i);
+      i_param->moment_p_gain_act[i] = m_RFUParam[arm].moment_p_gain_act(i);
+      i_param->moment_p_gain_ff[i]  = m_RFUParam[arm].moment_p_gain_ff(i);
+      i_param->moment_d_gain_act[i] = m_RFUParam[arm].moment_d_gain_act(i);
+      i_param->moment_d_gain_ff[i]  = m_RFUParam[arm].moment_d_gain_ff(i);
+  }
   i_param->update_freq = m_RFUParam[arm].update_freq;
   i_param->update_time_ratio = m_RFUParam[arm].update_time_ratio;
   i_param->frame = m_RFUParam[arm].frame.c_str();

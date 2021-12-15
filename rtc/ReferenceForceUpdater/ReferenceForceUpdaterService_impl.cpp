@@ -20,6 +20,15 @@ CORBA::Boolean ReferenceForceUpdaterService_impl::getReferenceForceUpdaterParam(
 {
     i_param = new OpenHRP::ReferenceForceUpdaterService::ReferenceForceUpdaterParam();
     i_param->motion_dir.length(3);
+    i_param->p_gain_act.length(3);
+    i_param->p_gain_ff.length(3);
+    i_param->d_gain_act.length(3);
+    i_param->d_gain_ff.length(3);
+    i_param->i_gain.length(3);
+    i_param->moment_p_gain_act.length(3);
+    i_param->moment_p_gain_ff.length(3);
+    i_param->moment_d_gain_act.length(3);
+    i_param->moment_d_gain_ff.length(3);
     return m_rfu->getReferenceForceUpdaterParam(std::string(i_name_), i_param);
 };
 
