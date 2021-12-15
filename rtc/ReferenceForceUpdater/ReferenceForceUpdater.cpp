@@ -662,7 +662,7 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     double interpolation_time = 0;
     size_t arm_idx = ee_index_map[arm];
     hrp::Link* target_link = m_robot->link(ee_map[arm].target_name);
-    hrp::Vector3 abs_motion_dir, abs_motion_dir_norm, df_act, df_ff, d_df_act, d_df_ff, dm_act, dm_ff, d_dm_act, d_dm_ff;
+    hrp::Vector3 abs_motion_dir, abs_motion_dir_abs, abs_motion_dir_bool, df_act, df_ff, d_df_act, d_df_ff, dm_act, dm_ff, d_dm_act, d_dm_ff;
     hrp::Matrix33 ee_rot;
     ee_rot = target_link->R * ee_map[arm].localR;
     if ( m_RFUParam[arm].frame=="local" )
@@ -697,27 +697,30 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     pre_dm_ff[arm_idx] = dm_ff;
 
     // exclude axis whose gain is too small
-    // and create abs_motion_dir_norm
+    // and create abs_motion_dir_**
     for (int i = 0; i < abs_motion_dir.size(); i++) {
         if (std::fabs(abs_motion_dir[i]) < 1e-5) {
-            abs_motion_dir[i] = 0.0;
-            abs_motion_dir_norm[i] = 0.0;
+            abs_motion_dir_abs[i] = 0.0;
+            abs_motion_dir_bool[i] = 0.0;
         } else if (std::signbit(abs_motion_dir[i])) {
-            abs_motion_dir_norm[i] = -1.0;
+            abs_motion_dir_abs[i] = -1.0 * abs_motion_dir[i];
+            abs_motion_dir_bool[i] = 1.0;
         } else {
-            abs_motion_dir_norm[i] = 1.0;
+            abs_motion_dir_abs[i] = abs_motion_dir[i];
+            abs_motion_dir_bool[i] = 1.0;
         }
     }
-    hrp::Matrix33 S_weight = abs_motion_dir.asDiagonal();    // selection matrix with weight
-    hrp::Matrix33 S_bool = abs_motion_dir_norm.asDiagonal(); // selection matrix without weight (0, -1, +1)
+    hrp::Matrix33 S_weight = abs_motion_dir_abs.asDiagonal(); // selection matrix without dir, with weight
+    hrp::Matrix33 S_dir = abs_motion_dir.asDiagonal();        // selection matrix with dir, with weight
+    hrp::Matrix33 S_bool = abs_motion_dir_bool.asDiagonal();  // selection matrix (0, 1)
     hrp::Vector3 selected_act = S_weight * df_act;
     hrp::Vector3 selected_ff = S_weight * df_ff;
     hrp::Vector3 d_selected_act = S_weight * d_df_act;
     hrp::Vector3 d_selected_ff = S_weight * d_df_ff;
     // not update ref-force into act-force when act-force is negative in motion_dir
     for (int i = 0; i < 3; i += 1) {
-      if ((S_bool * selected_act)[i] < 0.0 && (S_bool * ref_force[arm_idx])[i] < 0.0) {
-        selected_act[i] = d_selected_act[i] = 0;
+      if ((S_dir * df_act)[i] < 0.0 && (S_dir * ref_force[arm_idx])[i] < 0.0) {
+          selected_act[i] = d_selected_act[i] = 0;
       }
     }
     hrp::Vector3 in_f = ee_rot * internal_force;
@@ -737,7 +740,7 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     }
     if ( DEBUGP ) {
         std::cerr << "[" << m_profile.instance_name << "] Updating reference force [" << arm << "]" << std::endl;
-        std::cerr << "[" << m_profile.instance_name << "]   ref_force = " << ref_force[arm_idx].dot(abs_motion_dir) << "[N], interpolation_time = " << interpolation_time << "[s]" << std::endl;
+        std::cerr << "[" << m_profile.instance_name << "]   ref_force = " << (S_bool * ref_force[arm_idx]).norm() << "[N], interpolation_time = " << interpolation_time << "[s]" << std::endl;
         std::cerr << "[" << m_profile.instance_name << "]   new ref_force = " << ref_force[arm_idx].format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[N]" << std::endl;
         std::cerr << "[" << m_profile.instance_name << "]   filtered act_force = " << m_RFUParam[arm].act_force_filter->getCurrentValue().format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[N]" << std::endl;
         std::cerr << "[" << m_profile.instance_name << "]   df_act = " << df_act.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[N], df_ff = " << df_ff.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[N]" << std::endl;
