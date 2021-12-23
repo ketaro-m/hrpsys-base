@@ -598,7 +598,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     is_natural_walk = false;
     is_stop_early_foot = false;
 
-    cog_z_constraint = 1e-3;
+    cog_z_constraint = 1;
     arm_swing_deg = 30.0;
 
     debug_read_steppable_region = false;
@@ -691,12 +691,17 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
   // std::cerr << "AutoBalancer::onExecute(" << ec_id << ")" << std::endl;
     loop ++;
 
-    if (is_emergency_step_mode && st->is_emergency_step && !gg_is_walking && !is_stop_mode) {
+    if (is_emergency_step_mode && st->is_emergency_step && !gg_is_walking && !is_stop_mode && gg->is_steppable_while_jumping()) {
+      if (gg->is_jumping) {
+        gg->is_jumping = false;
+        stopJumping();
+      }
       gg->set_is_emergency_step(true);
       // if (fabs(st->act_cp(0)) > fabs(st->act_cp(1))) {
         if (st->act_cp(0) > 0) goVelocity(0,(st->ref_foot_origin_rot*ikp["lleg"].target_p0)(0) > (st->ref_foot_origin_rot*ikp["rleg"].target_p0)(0) ? -1e-6:1e-6,0);
         else goVelocity(0,(st->ref_foot_origin_rot*ikp["lleg"].target_p0)(0) > (st->ref_foot_origin_rot*ikp["rleg"].target_p0)(0) ? 1e-6:-1e-6,0);
       // } else goVelocity(0,st->act_cp(1)>0?-1e-6:1e-6,0);
+        is_emergency_step_mode = false;
     }
 
     // Read Inport
@@ -920,8 +925,6 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
         control_mode = MODE_IDLE;
       }
       m_robot->calcForwardKinematics();
-      hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
-      ref_cog(2) = tmp_ref_cog(2);
     }
 
     // Write Outport
@@ -1203,7 +1206,7 @@ void AutoBalancer::setABCData2ST()
   st->zmpRef = rel_ref_zmp;
   st->basePos = ref_basePos;
   st->baseRpy = baseRpy;
-  st->is_walking = gg_is_walking;
+  st->is_walking = gg_is_walking || gg->is_jumping;
   st->is_single_walking = gg_is_walking && gg->get_is_single_walking();
   st->sbp_cog_offset = sbp_cog_offset;
 }
@@ -1239,18 +1242,23 @@ void AutoBalancer::getTargetParameters()
       gg->get_vertices(support_polygon_vertices);
       gg->calc_convex_hull(support_polygon_vertices, tmp_contact_states, tmp_ee_pos, tmp_ee_rot);
     }
-    if ( gg_is_walking ) {
+    if ( gg_is_walking || gg->is_jumping ) {
       gg->set_default_zmp_offsets(default_zmp_offsets);
       hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
       act_cog.head(2) += sbp_cog_offset.head(2);
       hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
-      hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
-      gg_solved = gg->proc_one_tick(act_cog, act_cogvel, act_cmp);
-      if (!gg_solved) stopWalking();
-      st->falling_direction = gg->get_falling_direction();
-      gg->get_swing_support_mid_coords(tmp_fix_coords);
+      if (gg_is_walking) {
+        gg_solved = gg->proc_one_tick(act_cog, act_cogvel, target_cog);
+        if (!gg_solved) stopWalking();
+        st->falling_direction = gg->get_falling_direction();
+        gg->get_swing_support_mid_coords(tmp_fix_coords);
+      } else { // is_jumping
+        if (!gg->proc_one_tick_jump(act_cog, act_cogvel, target_cog)) stopJumping();
+        gg->get_jump_mid_coords(tmp_fix_coords);
+      }
     } else {
       tmp_fix_coords = fix_leg_coords;
+      initial_fix_coords = tmp_fix_coords;
     }
     if (!adjust_footstep_interpolator->isEmpty()) {
         calcFixCoordsForAdjustFootstep(tmp_fix_coords);
@@ -1267,6 +1275,7 @@ void AutoBalancer::getTargetParameters()
       getOutputParametersForWalking();
     } else {
       getOutputParametersForABC();
+      if (gg->is_jumping) getOutputParametersForJumping();
     }
     //   Just for ik initial value
     if (control_mode == MODE_SYNC_TO_ABC) {
@@ -1294,16 +1303,17 @@ void AutoBalancer::getTargetParameters()
     // Calculate ZMP, COG, and sbp targets
     hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
     hrp::Vector3 tmp_foot_mid_pos = calcFootMidPosUsingZMPWeightMap ();
-    if (gg_is_walking) {
+    target_cog = tmp_foot_mid_pos;
+    target_cog(2) = (tmp_ref_cog - tmp_fix_coords.pos + initial_fix_coords.pos)(2);
+    if (gg_is_walking || gg->is_jumping) {
       prev_orig_cog = orig_cog;
       ref_cog = gg->get_cog();
       orig_cog = ref_cog;
     } else {
-      ref_cog = tmp_foot_mid_pos;
+      ref_cog = target_cog;
     }
     limit_cog(ref_cog);
-    ref_cog(2) = tmp_ref_cog(2);
-    if (gg_is_walking) {
+    if (gg_is_walking || gg->is_jumping) {
       ref_zmp = gg->get_refzmp();
     } else {
       ref_zmp(0) = ref_cog(0);
@@ -1332,6 +1342,7 @@ void AutoBalancer::getTargetParameters()
 
 void AutoBalancer::getOutputParametersForWalking ()
 {
+    int contact_cnt = 0;
     for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
         size_t idx = contact_states_index_map[it->first];
         // Check whether "it->first" ee_name is included in leg_names. leg_names is equivalent to "swing" + "support" in gg.
@@ -1340,6 +1351,7 @@ void AutoBalancer::getOutputParametersForWalking ()
             gg->get_swing_support_ee_coords_from_ee_name(it->second.target_p0, it->second.target_r0, it->first);
             // Set contactStates
             m_contactStates.data[idx] = gg->get_current_support_state_from_ee_name(it->first);
+            if (m_contactStates.data[idx]) contact_cnt++;
             // Set controlSwingSupportTime
             m_controlSwingSupportTime.data[idx] = gg->get_current_swing_time_from_ee_name(it->first);
             // Set limbCOPOffset
@@ -1368,10 +1380,17 @@ void AutoBalancer::getOutputParametersForWalking ()
             m_toeheelRatio.data[idx] = rats::no_using_toe_heel_ratio;
         }
     }
+    if (contact_cnt > 0) {
+      double total_fz = m_robot->totalMass() * gg->get_gravitational_acceleration();
+      for (size_t i = 0; i < m_contactStates.data.length(); i++) {
+        if (m_contactStates.data[i]) m_ref_force[i].data[2] = total_fz / static_cast<double>(contact_cnt);
+      }
+    }
 };
 
 void AutoBalancer::getOutputParametersForABC ()
 {
+    int contact_cnt = 0;
     // double support by default
     for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
         size_t idx = contact_states_index_map[it->first];
@@ -1389,6 +1408,7 @@ void AutoBalancer::getOutputParametersForABC ()
         } else {
             m_contactStates.data[idx] = false;
         }
+        if (m_contactStates.data[idx]) contact_cnt++;
         // controlSwingSupportTime is not used while double support period, 1.0 is neglected
         m_controlSwingSupportTime.data[idx] = 1.0;
         // Set limbCOPOffset
@@ -1398,7 +1418,33 @@ void AutoBalancer::getOutputParametersForABC ()
         // Set toe heel ratio is not used while double support
         m_toeheelRatio.data[idx] = rats::no_using_toe_heel_ratio;
     }
+    if (contact_cnt > 0) {
+      double total_fz = m_robot->totalMass() * gg->get_gravitational_acceleration();
+      for (size_t i = 0; i < m_contactStates.data.length(); i++) {
+        if (m_contactStates.data[i]) m_ref_force[i].data[2] = total_fz / static_cast<double>(contact_cnt);
+      }
+    }
 };
+
+void AutoBalancer::getOutputParametersForJumping ()
+{
+  int contact_cnt = 0;
+  for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
+    size_t idx = contact_states_index_map[it->first];
+    // if(gg->is_jumping_phase()) m_contactStates.data[idx] = false; // TODO: fix bug on st
+    if (m_contactStates.data[idx]) contact_cnt++;
+    // Check whether "it->first" ee_name is included in leg_names. leg_names is equivalent to "swing" + "support" in gg.
+    if (std::find(leg_names.begin(), leg_names.end(), it->first) != leg_names.end()) {
+      gg->get_jump_ee_coords_from_ee_name(it->second.target_p0, it->second.target_r0, it->first);
+    }
+  }
+  if (contact_cnt > 0) {
+    double total_fz = m_robot->totalMass() * (gg->get_gravitational_acceleration() + gg->get_cog_acc()(2));
+    for (size_t i = 0; i < m_contactStates.data.length(); i++) {
+      if (m_contactStates.data[i]) m_ref_force[i].data[2] = total_fz / static_cast<double>(contact_cnt);
+    }
+  }
+}
 
 void AutoBalancer::getOutputParametersForIDLE ()
 {
@@ -1873,10 +1919,11 @@ void AutoBalancer::solveFullbodyIK ()
         if (gg->get_use_roll_flywheel()) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (gg->get_use_pitch_flywheel()) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
         double roll_weight, pitch_weight, fly_weight = 1e-3, normal_weight = 1e-7, weight_fly_interpolator_time = 1.0, weight_normal_interpolator_time = 1.5;
-        if (is_natural_walk) normal_weight = 0.0;
+        if (gg_is_walking && is_natural_walk) normal_weight = 0.0;
+        if (gg->is_jumping) fly_weight = 1;
         if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) fly_weight = 1e-6;
         // roll
-        if (gg->get_use_roll_flywheel()) {
+        if (gg->get_use_roll_flywheel() || gg->is_jumping) {
           if (!prev_roll_state) {
             if (roll_weight_interpolator->isEmpty()) roll_weight = normal_weight;
             else roll_weight_interpolator->get(&roll_weight, true);
@@ -1896,7 +1943,7 @@ void AutoBalancer::solveFullbodyIK ()
           else roll_weight_interpolator->get(&roll_weight, true);
         }
         // pitch
-        if (gg->get_use_pitch_flywheel()) {
+        if (gg->get_use_pitch_flywheel() || gg->is_jumping) {
           if (!prev_pitch_state) {
             if (pitch_weight_interpolator->isEmpty()) pitch_weight = normal_weight;
             else pitch_weight_interpolator->get(&pitch_weight, true);
@@ -1945,8 +1992,8 @@ void AutoBalancer::solveFullbodyIK ()
         }
         fik->q_ref_constraint_weight.fill(upper_weight);
 
-        prev_roll_state = gg->get_use_roll_flywheel();
-        prev_pitch_state = gg->get_use_pitch_flywheel();
+        prev_roll_state = gg->get_use_roll_flywheel() || gg->is_jumping;
+        prev_pitch_state = gg->get_use_pitch_flywheel() || gg->is_jumping;
         fik->q_ref_constraint_weight.segment(fik->ikp["rleg"].group_indices.back(), fik->ikp["rleg"].group_indices.size()).fill(0);
         fik->q_ref_constraint_weight.segment(fik->ikp["lleg"].group_indices.back(), fik->ikp["lleg"].group_indices.size()).fill(0);
         if(m_robot->link("RARM_F_JOINT0") != NULL) fik->q_ref_constraint_weight[m_robot->link("RARM_F_JOINT0")->jointId] = 1e-3;
@@ -2016,7 +2063,7 @@ void AutoBalancer::solveSimpleFullbodyIK ()
 
 void AutoBalancer::limit_cog (hrp::Vector3& cog)
 {
-  if (transition_interpolator->isEmpty() && !gg_is_walking && is_after_walking) {
+  if (transition_interpolator->isEmpty() && !gg_is_walking && is_after_walking && !gg->is_jumping) {
     std::vector<double> start_pos(3), start_vel(3), goal_pos(3);
     double tmp_time = 5.0;
     for (size_t i = 0; i < 3; i++) {
@@ -2156,6 +2203,7 @@ void AutoBalancer::stopABCparamEmergency()
     it->second->clear();
   }
   gg_is_walking = false;
+  gg->is_jumping = false;
 }
 
 bool AutoBalancer::startWalking ()
@@ -2171,7 +2219,6 @@ bool AutoBalancer::startWalking ()
   hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
   act_cog.head(2) += sbp_cog_offset.head(2);
   hrp::Vector3 act_cogvel = st->ref_foot_origin_rot * st->act_cogvel;
-  hrp::Vector3 act_cmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
   {
     Guard guard(m_mutex);
     fik->resetIKFailParam();
@@ -2192,7 +2239,7 @@ bool AutoBalancer::startWalking ()
     gg->initialize_gait_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps);
   }
   is_hand_fix_initial = true;
-  while ( !gg->proc_one_tick(act_cog, act_cogvel, act_cmp) );
+  while ( !gg->proc_one_tick(act_cog, act_cogvel, target_cog) );
   {
     Guard guard(m_mutex);
     gg_is_walking = gg_solved = true;
@@ -2214,18 +2261,62 @@ void AutoBalancer::stopWalking ()
   gg_is_walking = false;
 }
 
+void AutoBalancer::stopJumping ()
+{
+  std::vector<coordinates> tmp_end_coords_list;
+  for (std::vector<string>::iterator it = leg_names.begin(); it != leg_names.end(); it++) {
+    if ((*it).find("leg") != std::string::npos) tmp_end_coords_list.push_back(coordinates(ikp[*it].target_p0, ikp[*it].target_r0));
+  }
+  multi_mid_coords(fix_leg_coords, tmp_end_coords_list);
+  fixLegToCoords(fix_leg_coords.pos, fix_leg_coords.rot);
+}
+
 bool AutoBalancer::startAutoBalancer (const OpenHRP::AutoBalancerService::StrSequence& limbs)
 {
   if (control_mode == MODE_IDLE) {
     if (gg_is_walking) {
       // std::cerr << "[" << m_profile.instance_name << "] goStop before startAutoBalancer because gg_is_walking is true" << std::endl;
       // goStop();
-      std::cerr << "[" << m_profile.instance_name << "] Cannot startAutobalancer while gg_is_waking is true. Please goStop or wait for ending previous goPos." << std::endl;
+      std::cerr << "[" << m_profile.instance_name << "] Cannot startAutobalancer while gg_is_walking is true. Please goStop or wait for ending previous goPos." << std::endl;
       return false;
     }
     fik->resetIKFailParam();
     startABCparam(limbs);
     waitABCTransition();
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool AutoBalancer::jumpTo(const double& x, const double& y, const double& z, const double& ts, const double& tf)
+{
+  if (!gg->is_jumping && !gg_is_walking) {
+    gg->set_all_limbs(leg_names);
+    coordinates start_ref_coords;
+    std::vector<coordinates> initial_support_legs_coords; // dummy
+    std::vector<leg_type> initial_support_legs; // dummy
+    bool is_valid_gait_type = calc_inital_support_legs(0, initial_support_legs_coords, initial_support_legs, start_ref_coords);
+    if (is_valid_gait_type == false) return false;
+
+    // initialize jump generation
+    hrp::Vector3 act_cog = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog;
+    act_cog.head(2) += sbp_cog_offset.head(2);
+
+    std::vector<std::string> init_swing_leg_names(1, "rleg");
+    std::vector<std::string> init_support_leg_names(1, "lleg");
+    std::vector<step_node> init_support_leg_steps, init_swing_leg_dst_steps;
+    for (std::vector<std::string>::iterator it = init_support_leg_names.begin(); it != init_support_leg_names.end(); it++)
+      init_support_leg_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
+    for (std::vector<std::string>::iterator it = init_swing_leg_names.begin(); it != init_swing_leg_names.end(); it++)
+      init_swing_leg_dst_steps.push_back(step_node(*it, coordinates(ikp[*it].target_p0, ikp[*it].target_r0), 0, 0, 0, 0));
+    gg->set_default_zmp_offsets(default_zmp_offsets);
+    gg->initialize_jump_parameter(act_cog, ref_cog, init_support_leg_steps, init_swing_leg_dst_steps, start_ref_coords, hrp::Vector3(x, y, z), ts, tf);
+    gg->is_jumping = true;
+
+    is_after_walking = true;
+    limit_cog_interpolator->clear();
+
     return true;
   } else {
     return false;
@@ -2487,7 +2578,7 @@ bool AutoBalancer::setFootStepsWithParam(const OpenHRP::AutoBalancerService::Foo
 void AutoBalancer::waitFootSteps()
 {
   //while (gg_is_walking) usleep(10);
-  while (gg_is_walking || !transition_interpolator->isEmpty() )
+  while (gg_is_walking || !transition_interpolator->isEmpty() || gg->is_jumping)
     usleep(1000);
   usleep(1000);
   gg->set_offset_velocity_param(0,0,0);
@@ -2906,7 +2997,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   // IK limb parameters
   fik->setIKParam(ee_vec, i_param.ik_limb_parameters);
   // Limb stretch avoidance
-  fik->use_limb_stretch_avoidance = i_param.use_limb_stretch_avoidance;
+  if (i_param.use_limb_stretch_avoidance) std::cerr << "[" << m_profile.instance_name << "]    use_limb_stretch_avoidance is invalid in current version" << std::endl;
+  // fik->use_limb_stretch_avoidance = i_param.use_limb_stretch_avoidance;
   fik->limb_stretch_avoidance_time_const = i_param.limb_stretch_avoidance_time_const;
   for (size_t i = 0; i < 2; i++) {
     fik->limb_stretch_avoidance_vlimit[i] = i_param.limb_stretch_avoidance_vlimit[i];

@@ -39,9 +39,10 @@ public:
 class foot_guided_control_base
 {
 private:
-  double calc_u(const std::vector<LinearTrajectory<double> >& ref_zmp, const double cur_cp);
+  double calc_u(const std::vector<LinearTrajectory<double> >& ref_zmp, const double cur_cp, const bool is_z = false);
+  double calc_u_jump(const double landing_pos, const double takeoff_height, const double flight_time, const double cur_cog, const double cur_cogvel, const double ref_zmp, const double remain_time, const bool is_z = false);
   void truncate_u();
-  void calc_x_k();
+  void calc_x_k(const bool is_z = false);
 protected:
   Eigen::Matrix<double, 2, 2> A; // state matrix
   Eigen::Matrix<double, 2, 1> b; // input matrix
@@ -51,6 +52,7 @@ protected:
   Eigen::Matrix<double, 2, 1> act_x_k; // pos, vel
   Eigen::Matrix<double, 2, 1> w_k; // dcm, ccm
   Eigen::Matrix<double, 2, 1> act_w_k; // dcm, ccm
+  Eigen::Matrix<double, 2, 1> g_k;
   double u_k; // zmp
   double act_u_k; // zmp
   double w_k_offset; // dcm offset
@@ -84,8 +86,9 @@ public:
   // destructor
   ~foot_guided_control_base() {};
   // update function
-  void update_control(double& zmp, double& feedforward_zmp, const std::vector<LinearTrajectory<double> >& ref_zmp);
-  void update_state(double& pos, const double fx);
+  void update_control(double& zmp, double& feedforward_zmp, const std::vector<LinearTrajectory<double> >& ref_zmp, const bool is_z = false);
+  void update_control_jump(double& zmp, double& feedforward_zmp, const double ref_zmp, const double landing_pos, const double takeoff_height, const double flight_time, const double remain_time, const bool is_z = false);
+  void update_state(double& pos, const double fx, const bool is_z = false);
   void update(double& zmp, double& pos, const std::size_t N, const double ref_dcm, const double ref_zmp);
   // set function
   void set_mat();
@@ -147,13 +150,19 @@ public:
       std::vector<LinearTrajectory<double> > rz; // TODO: 無駄な処理をなくす
       rz.reserve(ref_zmp.size());
       for (size_t j = 0; j < ref_zmp.size(); j++) rz.push_back(LinearTrajectory<double>(ref_zmp.at(j).getStart()(i), ref_zmp.at(j).getGoal()(i), ref_zmp.at(j).getTime()));
-      controllers[i].update_control(zmp[i], feedforward_zmp[i], rz);
+      controllers[i].update_control(zmp[i], feedforward_zmp[i], rz, (i == 2));
+    }
+  }
+  void update_control_jump(hrp::Vector3& zmp, hrp::Vector3& feedforward_zmp, const hrp::Vector3 ref_zmp, const hrp::Vector3 landing_pos, const double takeoff_height, const double flight_time, const double remain_time)
+  {
+    for (size_t i = 0; i < dim; i++) {
+      controllers[i].update_control_jump(zmp[i], feedforward_zmp[i], ref_zmp[i], landing_pos[i], takeoff_height, flight_time, remain_time, (i == 2));
     }
   }
   void update_state(hrp::Vector3& x_ret, const hrp::Vector3 fx)
   {
     for (size_t i = 0; i < dim; i++)
-      controllers[i].update_state(x_ret[i], fx[i]);
+      controllers[i].update_state(x_ret[i], fx[i], (i == 2));
   }
   void update(hrp::Vector3& p_ret, hrp::Vector3& x_ret, const std::size_t N, const hrp::Vector3& ref_dcm, const hrp::Vector3& ref_zmp)
   {
@@ -187,7 +196,7 @@ public:
     }
   }
   void set_zmp (const hrp::Vector3& zmp, const hrp::Vector3& fzmp) {
-    for (size_t i = 0; i < dim - 1; i++) {
+    for (size_t i = 0; i < dim; i++) {
       controllers[i].set_zmp(zmp(i), fzmp(i));
     }
   }

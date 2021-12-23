@@ -98,6 +98,7 @@ class AutoBalancer
   bool goPos(const double& x, const double& y, const double& th);
   bool goVelocity(const double& vx, const double& vy, const double& vth);
   bool goStop();
+  bool jumpTo(const double& x, const double& y, const double& z, const double& ts, const double& tf);
   bool emergencyStop ();
   bool setFootSteps(const OpenHRP::AutoBalancerService::FootstepSequence& fs, CORBA::Long overwrite_fs_idx);
   bool setFootSteps(const OpenHRP::AutoBalancerService::FootstepsSequence& fss, CORBA::Long overwrite_fs_idx);
@@ -286,6 +287,7 @@ class AutoBalancer
   // Output parameters are EE, limbCOPOffset, contactStates, controlSwingSupportTime, toeheelPhaseRatio
   void getOutputParametersForWalking ();
   void getOutputParametersForABC ();
+  void getOutputParametersForJumping ();
   void getOutputParametersForIDLE ();
   void interpolateLegNamesAndZMPOffsets();
   void calcFixCoordsForAdjustFootstep (rats::coordinates& tmp_fix_coords);
@@ -300,6 +302,7 @@ class AutoBalancer
   void fixLegToCoords2 (rats::coordinates& tmp_fix_coords);
   bool startWalking ();
   void stopWalking ();
+  void stopJumping ();
   void copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs);
   // static balance point offsetting
   void static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height);
@@ -329,7 +332,7 @@ class AutoBalancer
   typedef boost::shared_ptr<FullbodyInverseKinematicsSolver> fikPtr;
   fikPtr fik;
   OpenHRP::AutoBalancerService::IKMode ik_mode;
-  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset, orig_cog, prev_orig_cog;
+  hrp::Vector3 ref_cog, ref_zmp, rel_ref_zmp, prev_ref_zmp, prev_imu_sensor_pos, prev_imu_sensor_vel, hand_fix_initial_offset, orig_cog, prev_orig_cog, target_cog;
   enum {BIPED, TROT, PACE, CRAWL, GALLOP} gait_type;
   enum {MODE_IDLE, MODE_ABC, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_ABC} control_mode;
   std::map<std::string, ABCIKparam> ikp;
@@ -396,6 +399,7 @@ class AutoBalancer
   bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved, use_collision_avoidance, is_natural_walk, is_stop_early_foot;
   double cog_z_constraint, touch_wall_retrieve_time, arm_swing_deg;
   bool debug_read_steppable_region;
+  rats::coordinates initial_fix_coords;
 };
 
 

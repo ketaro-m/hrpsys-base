@@ -636,6 +636,7 @@ char *time_string()
 
 bool robot::checkJointCommands(const double *i_commands)
 {
+    return false; // tmp fix
     if (!m_dt) return false;
     if (!m_commandOld.size()) return false;
 
@@ -671,6 +672,7 @@ bool robot::checkJointCommands(const double *i_commands)
 
 bool robot::checkEmergency(emg_reason &o_reason, int &o_id)
 {
+    return false; // tmp fix
     int state;
     for (unsigned int i=0; i<numJoints(); i++){
         read_servo_state(i, &state);
