@@ -701,13 +701,17 @@ namespace rats
     jump_phase = BEFORE_JUMP;
 
     hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
-    jump_last_cp = cur_cog + trans + jump_midcoords.rot * zmp_off;
+    hrp::Vector3 ez = hrp::Vector3::UnitZ();
+    hrp::Matrix33 mid_rot;
+    calc_foot_origin_rot(mid_rot, initial_jump_midcoords.rot, ez);
+    hrp::Vector3 tmp_trans = mid_rot * trans;
+    jump_last_cp = cur_cog + tmp_trans + jump_midcoords.rot * zmp_off;
     jump_remain_time = t_squat;
     jump_takeoff_height = cur_cog(2);
     jump_landing_height = jump_last_cp(2);
     jump_flight_time = t_flight;
     jump_recover_time = t_squat;
-    d_jump_pos = trans;
+    d_jump_pos = tmp_trans;
     d_jump_foot_pos = hrp::Vector3::Zero();
 
     if ( foot_guided_controller_ptr != NULL ) {
@@ -809,6 +813,19 @@ namespace rats
           hrp::Vector3 ez = hrp::Vector3::UnitZ();
           calc_foot_origin_rot(prev_fs_rot, footstep_nodes_list[lcg.get_footstep_index()-1].front().worldcoords.rot, ez);
           calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot, ez);
+
+          // limit stide of second step of stepping up and down on stair
+          hrp::Vector3 prev_fs_pos_relative = preprev_fs_rot.transpose() * (prev_fs_pos - preprev_fs_pos); // preprev foot frame
+          double stair_thre = 0.04, up_max_stride = 0.01, down_max_stride = 0.05;
+          double tmp_forward = overwritable_stride_limitation[0], tmp_rear = overwritable_stride_limitation[3];
+          if (prev_fs_pos_relative(2) > stair_thre) {
+            if (prev_fs_pos_relative(0) > 0.0) overwritable_stride_limitation[0] = up_max_stride;
+            else overwritable_stride_limitation[3] = up_max_stride;
+          } else if (prev_fs_pos_relative(2) < - stair_thre) {
+            if (prev_fs_pos_relative(0) > 0.0) overwritable_stride_limitation[0] = down_max_stride;
+            else overwritable_stride_limitation[3] = down_max_stride;
+          }
+
           if (cur_leg == RLEG) {
             stride_limitation_polygon[0] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], -overwritable_stride_limitation[4]-leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
             stride_limitation_polygon[1] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(-overwritable_stride_limitation[3], -overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
@@ -820,6 +837,10 @@ namespace rats
             stride_limitation_polygon[2] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[4]+leg_margin[3], 0.0)) - preprev_fs_pos)).head(2);
             stride_limitation_polygon[3] = (preprev_fs_rot.transpose() * ((prev_fs_pos + prev_fs_rot * hrp::Vector3(overwritable_stride_limitation[0], overwritable_stride_limitation[1], 0.0)) - preprev_fs_pos)).head(2);
           }
+
+          overwritable_stride_limitation[0] = tmp_forward;
+          overwritable_stride_limitation[3] = tmp_rear;
+
           for (size_t i = 0; i < steppable_region[cur_leg == RLEG ? LLEG : RLEG].size(); i++) {
             bool is_nan = false;
             hrp::Vector2 prev_p = hrp::Vector2::Zero();
@@ -1244,25 +1265,27 @@ namespace rats
       cur_pos = initial_foot_mid_coords.pos + initial_foot_mid_coords.rot * zmp_off;
       mid_pos = cur_pos;
     } else {
-      mid_pos = cur_steps.front().worldcoords.rot.transpose() * next_pos;
-      mid_pos(1) = 0.5 * (cur_steps.front().worldcoords.rot.transpose() * (cur_pos + next_pos))(1);
-      mid_pos = cur_steps.front().worldcoords.rot * mid_pos;
+      mid_pos = 0.5 * (cur_pos + next_pos);
     }
+    bool is_after_last2 = false;
     if ((step_num_phase == BEFORE_LAST && walking_phase != DOUBLE_BEFORE) ||
         step_num_phase == LAST) {
       next_pos = mid_pos;
+      is_after_last2 = true;
     }
+    mid2_pos = 0.5 * (next_pos + next2_pos);
     if ((step_num_phase == BEFORE2_LAST && walking_phase != DOUBLE_BEFORE) ||
         step_num_phase == BEFORE_LAST || step_num_phase == LAST) {
-      next2_pos = mid_pos;
+      if (is_after_last2) next2_pos = mid_pos;
+      else {
+        hrp::Vector3 zmp_off = 0.5 * (rg.get_default_zmp_offset(RLEG) + rg.get_default_zmp_offset(LLEG));
+        hrp::Vector3 last_foot_pos = footstep_nodes_list[step_num - 2].front().worldcoords.pos + footstep_nodes_list[step_num - 2].front().worldcoords.rot * zmp_off;
+        next2_pos = 0.5 * (next_pos + last_foot_pos);
+      }
+      mid2_pos = next2_pos;
     }
     if (step_num_phase == LAST) {
       cur_pos = mid_pos;
-    }
-    if (step_num_phase == BEFORE2_LAST) {
-      mid2_pos = mid_pos;
-    } else {
-      mid2_pos = 0.5 * (next_pos + next2_pos);
     }
     coordinates cur_step = coordinates(cur_pos, cur_steps.front().worldcoords.rot);
     hrp::Vector3 last_cp = next_pos;
@@ -1483,20 +1506,6 @@ namespace rats
     calc_foot_origin_rot(preprev_fs_rot, preprev_fs.worldcoords.rot);
     prev_fs_pos = preprev_fs_rot.transpose() * (prev_fs.worldcoords.pos - preprev_fs_pos);
     // <= preprev foot frame
-
-    // limit stide of second step of stepping up and down on stair
-    double stair_thre = 0.04, up_max_stride = 0.01, down_max_stride = 0.05;
-    double tmp_forward = overwritable_stride_limitation[0], tmp_rear = overwritable_stride_limitation[3];
-    if (prev_fs_pos(2) > stair_thre) {
-      if (prev_fs_pos(0) > 0.0) overwritable_stride_limitation[0] = up_max_stride;
-      else overwritable_stride_limitation[3] = up_max_stride;
-    } else if (prev_fs_pos(2) < - stair_thre) {
-      if (prev_fs_pos(0) > 0.0) overwritable_stride_limitation[0] = down_max_stride;
-      else overwritable_stride_limitation[3] = down_max_stride;
-    }
-    limit_stride_rectangle(cur_fs, prev_fs, overwritable_stride_limitation);
-    overwritable_stride_limitation[0] = tmp_forward;
-    overwritable_stride_limitation[3] = tmp_rear;
 
     hrp::Vector3 fspos_for_touch_wall = cur_fs.worldcoords.pos;
 
