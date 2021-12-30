@@ -521,7 +521,8 @@ class HrpsysConfigurator(object):
                 connectPorts(self.sh.port("baseRpyOut"), self.ic.port("baseRpyIn"))
         # connection for rfu
         if self.rfu:
-            connectPorts(self.sh.port("qOut"), self.rfu.port("qRef"))
+            # connectPorts(self.sh.port("qOut"), self.rfu.port("qRef"))
+            connectPorts(self.rh.port("q"), self.rfu.port("qRef"))
             if StrictVersion(self.seq_version) >= StrictVersion('315.3.0'):
                 connectPorts(self.sh.port("basePosOut"), self.rfu.port("basePosIn"))
                 connectPorts(self.sh.port("baseRpyOut"), self.rfu.port("baseRpyIn"))
