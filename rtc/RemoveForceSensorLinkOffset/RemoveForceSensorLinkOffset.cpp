@@ -239,6 +239,7 @@ RTC::ReturnCode_t RemoveForceSensorLinkOffset::onExecute(RTC::UniqueId ec_id)
     m_forceOut[i]->write();
   }
   for (unsigned int i=0; i<m_abs_forceOut.size(); i++){
+    m_abs_force[i].tm = m_force[i].tm;
     m_abs_forceOut[i]->write();
   }
   return RTC::RTC_OK;
