@@ -103,15 +103,20 @@ RTC::ReturnCode_t RemoveForceSensorLinkOffset::onInitialize()
 
   unsigned int nforce = m_robot->numSensors(hrp::Sensor::FORCE);
   m_force.resize(nforce);
+  m_abs_force.resize(nforce);
   m_forceOut.resize(nforce);
+  m_abs_forceOut.resize(nforce);
   m_forceIn.resize(nforce);
   for (unsigned int i = 0; i < nforce; i++) {
     hrp::Sensor *s = m_robot->sensor(hrp::Sensor::FORCE, i);
     m_forceOut[i] = new OutPort<TimedDoubleSeq>(std::string("off_"+s->name).c_str(), m_force[i]);
+    m_abs_forceOut[i] = new OutPort<TimedDoubleSeq>(std::string("off_abs_"+s->name).c_str(), m_abs_force[i]);
     m_forceIn[i] = new InPort<TimedDoubleSeq>(s->name.c_str(), m_force[i]);
     m_force[i].data.length(6);
+    m_abs_force[i].data.length(6);
     registerInPort(s->name.c_str(), *m_forceIn[i]);
     registerOutPort(std::string("off_"+s->name).c_str(), *m_forceOut[i]);
+    registerOutPort(std::string("off_abs_"+s->name).c_str(), *m_abs_forceOut[i]);
     m_forcemoment_offset_param.insert(std::pair<std::string, ForceMomentOffsetParam>(s->name, ForceMomentOffsetParam()));
   }
   max_sensor_offset_calib_counter = static_cast<int>(8.0/m_dt); // 8.0[s] by default
@@ -209,6 +214,10 @@ RTC::ReturnCode_t RemoveForceSensorLinkOffset::onExecute(RTC::UniqueId ec_id)
           // force and moments which do not include offsets
           fmp.off_force = sensorR * (data_p - fmp.force_offset) - mg;
           fmp.off_moment = sensorR * (data_r - fmp.moment_offset) - cxmg;
+          for (size_t j = 0; j < 3; j++) {
+            m_abs_force[i].data[j] = fmp.off_force(j);
+            m_abs_force[i].data[3+j] = fmp.off_moment(j);
+          }
           // convert absolute force -> sensor local force
           fmp.off_force = hrp::Vector3(sensorR.transpose() * fmp.off_force);
           fmp.off_moment = hrp::Vector3(sensorR.transpose() * fmp.off_moment);
@@ -228,6 +237,9 @@ RTC::ReturnCode_t RemoveForceSensorLinkOffset::onExecute(RTC::UniqueId ec_id)
   }
   for (unsigned int i=0; i<m_forceOut.size(); i++){
     m_forceOut[i]->write();
+  }
+  for (unsigned int i=0; i<m_abs_forceOut.size(); i++){
+    m_abs_forceOut[i]->write();
   }
   return RTC::RTC_OK;
 }
