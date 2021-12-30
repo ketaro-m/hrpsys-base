@@ -129,9 +129,9 @@ class RemoveForceSensorLinkOffset
 
   // DataOutPort declaration
   // <rtc-template block="outport_declare">
-  std::vector<TimedDoubleSeq> m_force;
+  std::vector<TimedDoubleSeq> m_force, m_abs_force;
   std::vector<InPort<TimedDoubleSeq> *> m_forceIn;
-  std::vector<OutPort<TimedDoubleSeq> *> m_forceOut;
+  std::vector<OutPort<TimedDoubleSeq> *> m_forceOut, m_abs_forceOut;
   
   // </rtc-template>
 

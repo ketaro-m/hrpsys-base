@@ -1012,6 +1012,7 @@ class HrpsysConfigurator(object):
         if self.rmfo != None:
             for sen in filter(lambda x: x.type == "Force", self.sensors):
                 self.connectLoggerPort(self.rmfo, "off_"+sen.name)
+                self.connectLoggerPort(self.rmfo, "off_abs_"+sen.name)
         if self.rfu != None:
             for sen in filter(lambda x: x.type == "Force", self.sensors):
                 self.connectLoggerPort(self.rfu, "ref_"+sen.name+"Out")
