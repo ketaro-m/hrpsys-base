@@ -1046,7 +1046,7 @@ namespace rats
     hrp::Vector3 refzmp_orig = zmp, feedforward_zmp_orig = feedforward_zmp;
     if (jump_phase != JUMPING) {
       // project to nominal ground
-      project_to_nominal_ground(zmp, initial_jump_midcoords.pos, cur_refcog);
+      project_to_nominal_ground(zmp, initial_jump_midcoords.pos, cur_cog);
       project_to_nominal_ground(feedforward_zmp, initial_jump_midcoords.pos, cur_refcog);
       // truncate zmp (assume RLEG, LLEG)
       Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
@@ -1057,7 +1057,7 @@ namespace rats
         feedforward_zmp.head(2) = tmp_fzmp;
       }
       // revert to zmp height
-      project_to_nominal_ground(zmp, refzmp_orig, cur_refcog);
+      project_to_nominal_ground(zmp, refzmp_orig, cur_cog);
       project_to_nominal_ground(feedforward_zmp, feedforward_zmp_orig, cur_refcog);
       foot_guided_controller_ptr->set_zmp(zmp, feedforward_zmp);
     }
@@ -1066,7 +1066,10 @@ namespace rats
 
     // convert zmp -> refzmp
     refzmp = zmp;
-    if (jump_phase != JUMPING) project_to_nominal_ground(refzmp, initial_jump_midcoords.pos, cog);
+    if (jump_phase != JUMPING) {
+      project_to_nominal_ground(refzmp, cur_ref_zmp, cur_cog);
+      project_to_nominal_ground(feedforward_zmp, cur_ref_zmp, cur_refcog);
+    }
 
     // update foot coords
     if (jump_phase == JUMPING || jump_phase == AFTER_JUMP) {
@@ -1373,7 +1376,7 @@ namespace rats
     hrp::Vector3 refzmp_orig = zmp, feedforward_zmp_orig = feedforward_zmp;
     {
       // project to nominal ground
-      project_to_nominal_ground(zmp, rg.get_refzmp_cur(), cur_refcog);
+      project_to_nominal_ground(zmp, rg.get_refzmp_cur(), cur_cog);
       project_to_nominal_ground(feedforward_zmp, rg.get_refzmp_cur(), cur_refcog);
       // truncate zmp (assume RLEG, LLEG)
       Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
@@ -1384,7 +1387,7 @@ namespace rats
         feedforward_zmp.head(2) = tmp_fzmp;
       }
       // revert to zmp height
-      project_to_nominal_ground(zmp, refzmp_orig, cur_refcog);
+      project_to_nominal_ground(zmp, refzmp_orig, cur_cog);
       project_to_nominal_ground(feedforward_zmp, feedforward_zmp_orig, cur_refcog);
       // zmp = zmp_filter->passFilter(zmp);
       foot_guided_controller_ptr->set_zmp(zmp, feedforward_zmp);
@@ -1395,7 +1398,8 @@ namespace rats
     foot_guided_controller_ptr->update_state(cog, tmpfxy);
     // convert zmp -> refzmp
     refzmp = zmp;
-    project_to_nominal_ground(refzmp, rg.get_refzmp_cur(), cog);
+    project_to_nominal_ground(refzmp, cur_ref_zmp, cur_cog);
+    project_to_nominal_ground(feedforward_zmp, cur_ref_zmp, cur_refcog);
 
     // for log
     tmp[0] = cur_ref_zmp(0);
