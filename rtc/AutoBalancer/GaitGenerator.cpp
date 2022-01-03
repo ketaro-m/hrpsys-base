@@ -1046,8 +1046,8 @@ namespace rats
     hrp::Vector3 refzmp_orig = zmp, feedforward_zmp_orig = feedforward_zmp;
     if (jump_phase != JUMPING) {
       // project to nominal ground
-      project_to_nominal_ground(zmp, initial_jump_midcoords.pos, cur_cog);
-      project_to_nominal_ground(feedforward_zmp, initial_jump_midcoords.pos, cur_refcog);
+      project_to_nominal_ground(zmp, cur_ref_zmp, cur_cog);
+      project_to_nominal_ground(feedforward_zmp, cur_ref_zmp, cur_refcog);
       // truncate zmp (assume RLEG, LLEG)
       Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
       if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
@@ -1376,8 +1376,8 @@ namespace rats
     hrp::Vector3 refzmp_orig = zmp, feedforward_zmp_orig = feedforward_zmp;
     {
       // project to nominal ground
-      project_to_nominal_ground(zmp, rg.get_refzmp_cur(), cur_cog);
-      project_to_nominal_ground(feedforward_zmp, rg.get_refzmp_cur(), cur_refcog);
+      project_to_nominal_ground(zmp, cur_ref_zmp, cur_cog);
+      project_to_nominal_ground(feedforward_zmp, cur_ref_zmp, cur_refcog);
       // truncate zmp (assume RLEG, LLEG)
       Eigen::Vector2d tmp_zmp(zmp.head(2)), tmp_fzmp(feedforward_zmp.head(2));
       if (!is_inside_convex_hull(tmp_zmp, hrp::Vector3::Zero(), true)) { // TODO: should consider footstep rot
