@@ -226,8 +226,8 @@ class ReferenceForceUpdater
       update_freq = 50; // Hz
       update_time_ratio = 0.5;
       p_gain_act = hrp::Vector3::Zero();
-      d_gain_ff  = hrp::Vector3::Zero();
-      p_gain_act = hrp::Vector3::Zero();
+      p_gain_ff  = hrp::Vector3::Zero();
+      d_gain_act = hrp::Vector3::Zero();
       d_gain_ff  = hrp::Vector3::Zero();
       i_gain     = hrp::Vector3::Zero();
       moment_p_gain_act = hrp::Vector3::Zero();
