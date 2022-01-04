@@ -243,8 +243,8 @@ class AutoBalancer
   OutPort<TimedPoint3D> m_originActZmpOut, m_originActCogOut, m_originActCogVelOut;
   OpenHRP::TimedSteppableRegion m_currentSteppableRegion;
   OutPort<OpenHRP::TimedSteppableRegion> m_currentSteppableRegionOut;
-  std::vector<TimedDoubleSeq> m_ref_force_balance;
-  std::vector<OutPort<TimedDoubleSeq> *> m_ref_force_balanceOut;
+  std::vector<TimedDoubleSeq> m_sbp_ref_force;
+  std::vector<OutPort<TimedDoubleSeq> *> m_sbp_ref_forceOut;
 
 
   
@@ -363,8 +363,8 @@ class AutoBalancer
   hrp::Vector3 sbp_offset, sbp_cog_offset;
   enum {MODE_NO_FORCE, MODE_REF_FORCE, MODE_REF_FORCE_WITH_FOOT, MODE_REF_FORCE_RFU_EXT_MOMENT} use_force;
   std::vector<hrp::Vector3> ref_forces, ref_moments;
-  double ref_force_balance_gain, ref_moment_balance_gain;
-  std::vector<hrp::Vector3> ref_forces_balance, ref_moments_balance;
+  double sbp_ref_force_gain, sbp_ref_moment_gain;
+  std::vector<hrp::Vector3> sbp_ref_forces, sbp_ref_moments;
 
   unsigned int m_debugLevel;
   bool is_legged_robot, is_stop_mode, is_hand_fix_mode, is_hand_fix_initial, is_hand_world_fix_mode;

@@ -462,8 +462,8 @@ module OpenHRP
       double arm_swing_deg;
       boolean debug_read_steppable_region;
       /// ref-force to sbp update gain [0~1]
-      double ref_force_balance_gain;
-      double ref_moment_balance_gain;
+      double sbp_ref_force_gain;
+      double sbp_ref_moment_gain;
     };
 
     /**

@@ -491,11 +491,11 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     }
 
     m_ref_force.resize(nforce);
-    m_ref_force_balance.resize(nforce);
+    m_sbp_ref_force.resize(nforce);
     m_ref_forceIn.resize(nforce);
     m_force.resize(nforce);
     m_ref_forceOut.resize(nforce);
-    m_ref_force_balanceOut.resize(nforce);
+    m_sbp_ref_forceOut.resize(nforce);
     m_limbCOPOffset.resize(nforce);
     m_limbCOPOffsetOut.resize(nforce);
     m_wrenches.resize(nforce);
@@ -503,8 +503,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     st->wrenches.resize(nforce);
     st->ref_wrenches.resize(nforce);
     st->limbCOPOffset.resize(nforce);
-    ref_force_balance_gain = 1;
-    ref_moment_balance_gain = 1;
+    sbp_ref_force_gain = 1;
+    sbp_ref_moment_gain = 1;
     for (unsigned int i=0; i<npforce; i++){
         sensor_names.push_back(m_robot->sensor(hrp::Sensor::FORCE, i)->name);
     }
@@ -521,9 +521,9 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         registerInPort(std::string("ref_"+sensor_names[i]).c_str(), *m_ref_forceIn[i]);
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("ref_"+sensor_names[i]) << std::endl;
         ref_forces.push_back(hrp::Vector3(0,0,0));
-        ref_forces_balance.push_back(hrp::Vector3(0,0,0));
+        sbp_ref_forces.push_back(hrp::Vector3(0,0,0));
         ref_moments.push_back(hrp::Vector3(0,0,0));
-        ref_moments_balance.push_back(hrp::Vector3(0,0,0));
+        sbp_ref_moments.push_back(hrp::Vector3(0,0,0));
         // actual inport
         m_wrenchesIn[i] = new InPort<TimedDoubleSeq>(sensor_names[i].c_str(), m_wrenches[i]);
         m_wrenches[i].data.length(6);
@@ -541,13 +541,13 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         registerOutPort(std::string(sensor_names[i]).c_str(), *m_ref_forceOut[i]);
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string(sensor_names[i]) << std::endl;
     }
-    // set ref force balance port
+    // set sbp ref force port
     for (unsigned int i=0; i<nforce; i++){
-        m_ref_force_balanceOut[i] = new OutPort<TimedDoubleSeq>(std::string("sbp_ref_"+sensor_names[i]+"Out").c_str(), m_ref_force_balance[i]);
-        m_ref_force_balance[i].data.length(6);
-        m_ref_force_balance[i].data[0] = m_ref_force_balance[i].data[1] = m_ref_force_balance[i].data[2] = 0.0;
-        m_ref_force_balance[i].data[3] = m_ref_force_balance[i].data[4] = m_ref_force_balance[i].data[5] = 0.0;
-        registerOutPort(std::string("ref_"+sensor_names[i]+"Out").c_str(), *m_ref_force_balanceOut[i]);
+        m_sbp_ref_forceOut[i] = new OutPort<TimedDoubleSeq>(std::string("sbp_ref_"+sensor_names[i]+"Out").c_str(), m_sbp_ref_force[i]);
+        m_sbp_ref_force[i].data.length(6);
+        m_sbp_ref_force[i].data[0] = m_sbp_ref_force[i].data[1] = m_sbp_ref_force[i].data[2] = 0.0;
+        m_sbp_ref_force[i].data[3] = m_sbp_ref_force[i].data[4] = m_sbp_ref_force[i].data[5] = 0.0;
+        registerOutPort(std::string("sbp_ref_"+sensor_names[i]+"Out").c_str(), *m_sbp_ref_forceOut[i]);
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("sbp_ref_"+sensor_names[i]+"Out") << std::endl;
     }
     // set limb cop offset port
@@ -1068,9 +1068,9 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
           m_ref_forceOut[i]->write();
       }
 
-      for (unsigned int i=0; i<m_ref_force_balanceOut.size(); i++){
-          m_ref_force_balance[i].tm = m_qRef.tm;
-          m_ref_force_balanceOut[i]->write();
+      for (unsigned int i=0; i<m_sbp_ref_forceOut.size(); i++){
+          m_sbp_ref_force[i].tm = m_qRef.tm;
+          m_sbp_ref_forceOut[i]->write();
       }
 
       for (unsigned int i=0; i<m_limbCOPOffsetOut.size(); i++){
@@ -2937,9 +2937,9 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   gg->set_is_stop_early_foot(is_stop_early_foot);
   arm_swing_deg = i_param.arm_swing_deg;
   debug_read_steppable_region = i_param.debug_read_steppable_region;
-  ref_force_balance_gain = i_param.ref_force_balance_gain;
-  ref_moment_balance_gain = i_param.ref_moment_balance_gain;
-  std::cerr << "[" << m_profile.instance_name << "]   ref_force_balance_gain: " << ref_force_balance_gain << ",  ref_moment_balance_gain: " << ref_moment_balance_gain << std::endl;
+  sbp_ref_force_gain = i_param.sbp_ref_force_gain;
+  sbp_ref_moment_gain = i_param.sbp_ref_moment_gain;
+  std::cerr << "[" << m_profile.instance_name << "]   sbp_ref_force_gain: " << sbp_ref_force_gain << ",  sbp_ref_moment_gain: " << sbp_ref_moment_gain << std::endl;
   return true;
 };
 
@@ -3032,8 +3032,8 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.is_stop_early_foot = is_stop_early_foot;
   i_param.arm_swing_deg = arm_swing_deg;
   i_param.debug_read_steppable_region = debug_read_steppable_region;
-  i_param.ref_force_balance_gain = ref_force_balance_gain;
-  i_param.ref_moment_balance_gain = ref_moment_balance_gain;
+  i_param.sbp_ref_force_gain = sbp_ref_force_gain;
+  i_param.sbp_ref_moment_gain = sbp_ref_moment_gain;
   return true;
 };
 
@@ -3801,24 +3801,24 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
 {
   hrp::Vector3 denom, nume;
   for (int i = 0; i < ref_forces.size(); i++) {
-      ref_forces_balance[i] = ref_force_balance_gain * ref_forces[i] + (1 - ref_force_balance_gain) * ref_forces_balance[i];
-      ref_moments_balance[i] = ref_moment_balance_gain * ref_moments[i] + (1 - ref_moment_balance_gain) * ref_moments_balance[i];
+      sbp_ref_forces[i] = sbp_ref_force_gain * ref_forces[i] + (1 - sbp_ref_force_gain) * sbp_ref_forces[i];
+      sbp_ref_moments[i] = sbp_ref_moment_gain * ref_moments[i] + (1 - sbp_ref_moment_gain) * sbp_ref_moments[i];
   }
   // output to port
-  for (int i = 0; i < ref_forces_balance.size(); i++) {
-      for (int j = 0; j < ref_forces_balance[0].size(); j++) {
-        m_ref_force_balance[i].data[j] = ref_forces_balance[i][j];
+  for (int i = 0; i < sbp_ref_forces.size(); i++) {
+      for (int j = 0; j < sbp_ref_forces[0].size(); j++) {
+        m_sbp_ref_force[i].data[j] = sbp_ref_forces[i][j];
       }
-      for (int j = 0; j < ref_moments_balance[0].size(); j++) {
-        m_ref_force_balance[i].data[j+ref_forces_balance[0].size()] = ref_moments_balance[i][j];
+      for (int j = 0; j < sbp_ref_moments[0].size(); j++) {
+        m_sbp_ref_force[i].data[j+sbp_ref_forces[0].size()] = sbp_ref_moments[i][j];
       }
   }
   /* sb_point[m] = nume[kg * m/s^2 * m] / denom[kg * m/s^2] */
   double mass = m_robot->totalMass();
   double mg = mass * gg->get_gravitational_acceleration();
   hrp::Vector3 total_sensor_ref_force = hrp::Vector3::Zero();
-  for (size_t i = 0; i < ref_forces_balance.size(); i++) {
-      total_sensor_ref_force += ref_forces_balance[i];
+  for (size_t i = 0; i < sbp_ref_forces.size(); i++) {
+      total_sensor_ref_force += sbp_ref_forces[i];
   }
   hrp::Vector3 total_nosensor_ref_force = mg * hrp::Vector3::UnitZ() - total_sensor_ref_force; // total ref force at the point without sensors, such as torso
   hrp::Vector3 tmp_ext_moment = fix_leg_coords2.pos.cross(total_nosensor_ref_force) + fix_leg_coords2.rot * hrp::Vector3(m_refFootOriginExtMoment.data.x, m_refFootOriginExtMoment.data.y, m_refFootOriginExtMoment.data.z);
@@ -3845,9 +3845,9 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
                 size_t idx = contact_states_index_map[it->first];
                 // Force applied point is assumed as end effector
                 hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
-                nume(j) += ( (fpos(2) - ref_com_height) * ref_forces_balance[idx](j) - fpos(j) * ref_forces_balance[idx](2) );
-                nume(j) += (j==0 ? ref_moments_balance[idx](1):-ref_moments_balance[idx](0));
-                denom(j) -= ref_forces_balance[idx](2);
+                nume(j) += ( (fpos(2) - ref_com_height) * sbp_ref_forces[idx](j) - fpos(j) * sbp_ref_forces[idx](2) );
+                nume(j) += (j==0 ? sbp_ref_moments[idx](1):-sbp_ref_moments[idx](0));
+                denom(j) -= sbp_ref_forces[idx](2);
             }
         }
         if ( use_force == MODE_REF_FORCE_WITH_FOOT ) {
