@@ -148,8 +148,8 @@ class AutoBalancer
   InPort<TimedPoint3D> m_zmpIn;
   TimedDoubleSeq m_optionalData;
   InPort<TimedDoubleSeq> m_optionalDataIn;
-  std::vector<TimedDoubleSeq> m_ref_force;
-  std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn;
+  std::vector<TimedDoubleSeq> m_ref_force, m_sbp_ref_force_in;
+  std::vector<InPort<TimedDoubleSeq> *> m_ref_forceIn, m_sbp_ref_forceIn;
   TimedPoint3D m_diffCP;
   InPort<TimedPoint3D> m_diffCPIn;
   TimedPoint3D m_refFootOriginExtMoment;
