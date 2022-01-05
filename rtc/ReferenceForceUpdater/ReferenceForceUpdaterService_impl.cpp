@@ -29,6 +29,16 @@ CORBA::Boolean ReferenceForceUpdaterService_impl::getReferenceForceUpdaterParam(
     i_param->moment_p_gain_ff.length(3);
     i_param->moment_d_gain_act.length(3);
     i_param->moment_d_gain_ff.length(3);
+
+    i_param->sbp_p_gain_act.length(3);
+    i_param->sbp_p_gain_ff.length(3);
+    i_param->sbp_d_gain_act.length(3);
+    i_param->sbp_d_gain_ff.length(3);
+    i_param->sbp_i_gain.length(3);
+    i_param->sbp_moment_p_gain_act.length(3);
+    i_param->sbp_moment_p_gain_ff.length(3);
+    i_param->sbp_moment_d_gain_act.length(3);
+    i_param->sbp_moment_d_gain_ff.length(3);
     return m_rfu->getReferenceForceUpdaterParam(std::string(i_name_), i_param);
 };
 

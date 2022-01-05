@@ -148,8 +148,8 @@ class ReferenceForceUpdater
 
   // DataOutPort declaration
   // <rtc-template block="outport_declare">
-  std::vector<TimedDoubleSeq> m_ref_force_out;
-  std::vector<OutPort<TimedDoubleSeq> *> m_ref_forceOut;
+  std::vector<TimedDoubleSeq> m_ref_force_out, m_sbp_ref_force_out;
+  std::vector<OutPort<TimedDoubleSeq> *> m_ref_forceOut, m_sbp_ref_forceOut;
   TimedPoint3D m_refFootOriginExtMoment;
   OutPort<TimedPoint3D> m_refFootOriginExtMomentOut;
   TimedBoolean m_refFootOriginExtMomentIsHoldValue;
@@ -186,23 +186,23 @@ class ReferenceForceUpdater
     // Update time ratio \in [0,1]
     double update_time_ratio;
     // P gain for (actual - ref)
-    hrp::Vector3 p_gain_act;
+    hrp::Vector3 p_gain_act, sbp_p_gain_act;
     // P gain for (ff -ref)
-    hrp::Vector3 p_gain_ff;
+    hrp::Vector3 p_gain_ff, sbp_p_gain_ff;
     // D gain for (actual -ref)
-    hrp::Vector3 d_gain_act;
+    hrp::Vector3 d_gain_act, sbp_d_gain_act;
     // D gain for (ff -ref)
-    hrp::Vector3 d_gain_ff;
+    hrp::Vector3 d_gain_ff, sbp_d_gain_ff;
     // I gain
-    hrp::Vector3 i_gain;
+    hrp::Vector3 i_gain, sbp_i_gain;
     // P gain for moment (actual - ref)
-    hrp::Vector3 moment_p_gain_act;
+    hrp::Vector3 moment_p_gain_act, sbp_moment_p_gain_act;
     // P gain for moment (ff - ref)
-    hrp::Vector3 moment_p_gain_ff;
+    hrp::Vector3 moment_p_gain_ff, sbp_moment_p_gain_ff;
     // D gain for moment (actual - ref)
-    hrp::Vector3 moment_d_gain_act;
+    hrp::Vector3 moment_d_gain_act, sbp_moment_d_gain_act;
     // D gain for moment (ff - ref)
-    hrp::Vector3 moment_d_gain_ff;
+    hrp::Vector3 moment_d_gain_ff, sbp_moment_d_gain_ff;
     // Transition time[s]
     double transition_time;
     // Motion direction to update reference force
@@ -234,6 +234,15 @@ class ReferenceForceUpdater
       moment_p_gain_ff  = hrp::Vector3::Zero();
       moment_d_gain_act = hrp::Vector3::Zero();
       moment_d_gain_ff  = hrp::Vector3::Zero();
+      sbp_p_gain_act = hrp::Vector3::Zero();
+      sbp_p_gain_ff  = hrp::Vector3::Zero();
+      sbp_d_gain_act = hrp::Vector3::Zero();
+      sbp_d_gain_ff  = hrp::Vector3::Zero();
+      sbp_i_gain     = hrp::Vector3::Zero();
+      sbp_moment_p_gain_act = hrp::Vector3::Zero();
+      sbp_moment_p_gain_ff  = hrp::Vector3::Zero();
+      sbp_moment_d_gain_act = hrp::Vector3::Zero();
+      sbp_moment_d_gain_ff  = hrp::Vector3::Zero();
       transition_time = 1.0;
       //additional params (not defined in idl)
       is_active = false;
@@ -259,17 +268,17 @@ class ReferenceForceUpdater
   std::map<std::string, ee_trans> ee_map;
   std::map<std::string, size_t> ee_index_map;
   std::map<std::string, ReferenceForceUpdaterParam> m_RFUParam;
-  std::vector<hrp::Vector3> ref_force;
-  std::vector<hrp::Vector3> ref_moment;
-  std::map<std::string, interpolator*> ref_force_interpolator;
-  std::map<std::string, interpolator*> ref_moment_interpolator;
+  std::vector<hrp::Vector3> ref_force, sbp_ref_force;
+  std::vector<hrp::Vector3> ref_moment, sbp_ref_moment;
+  std::map<std::string, interpolator*> ref_force_interpolator, sbp_ref_force_interpolator;
+  std::map<std::string, interpolator*> ref_moment_interpolator, sbp_ref_moment_interpolator;
   std::map<std::string, interpolator*> transition_interpolator;
   std::vector<double> transition_interpolator_ratio;
   hrp::Matrix33 foot_origin_rot;
-  std::vector<hrp::Vector3> pre_df_act;
-  std::vector<hrp::Vector3> pre_df_ff;
-  std::vector<hrp::Vector3> pre_dm_act;
-  std::vector<hrp::Vector3> pre_dm_ff;
+  std::vector<hrp::Vector3> pre_df_act, pre_sbp_df_act;
+  std::vector<hrp::Vector3> pre_df_ff, pre_sbp_df_ff;
+  std::vector<hrp::Vector3> pre_dm_act, pre_sbp_dm_act;
+  std::vector<hrp::Vector3> pre_dm_ff, pre_sbp_dm_ff;
   bool use_sh_base_pos_rpy;
   int loop;//counter in onExecute
   const std::string footoriginextmoment_name, objextmoment0_name;

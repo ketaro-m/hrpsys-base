@@ -42,6 +42,24 @@ module OpenHRP
           DblSequence3 moment_d_gain_act;
           /// D gain for moment (ff - ref)
           DblSequence3 moment_d_gain_ff;
+          /// P gain for (actaul - ref)
+          DblSequence3 sbp_p_gain_act;
+          /// P gain for (ff - ref)
+          DblSequence3 sbp_p_gain_ff;
+          /// D gain for (actual - ref)
+          DblSequence3 sbp_d_gain_act;
+          /// D gain for (ff - ref)
+          DblSequence3 sbp_d_gain_ff;
+          /// I gain
+          DblSequence3 sbp_i_gain;
+          /// P gain for moment (actual - ref)
+          DblSequence3 sbp_moment_p_gain_act;
+          /// P gain for moment (ff - ref)
+          DblSequence3 sbp_moment_p_gain_ff;
+          /// D gain for moment (actual - ref)
+          DblSequence3 sbp_moment_d_gain_act;
+          /// D gain for moment (ff - ref)
+          DblSequence3 sbp_moment_d_gain_ff;
           /// Hold current value or not. If is_hold_value is true, do not update value, otherwise, update value.
           boolean is_hold_value;
           /// Transition time[s]

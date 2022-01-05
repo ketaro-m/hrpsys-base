@@ -148,9 +148,11 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
   m_force.resize(nforce);
   m_forceIn.resize(nforce);
   m_ref_force_in.resize(nforce);
-  m_ref_force_out.resize(nforce);
   m_ref_forceIn.resize(nforce);
+  m_ref_force_out.resize(nforce);
   m_ref_forceOut.resize(nforce);
+  m_sbp_ref_force_out.resize(nforce);
+  m_sbp_ref_forceOut.resize(nforce);
   std::cerr << "[" << m_profile.instance_name << "] create force sensor ports" << std::endl;
   for (unsigned int i=0; i<nforce; i++){
     // actual inport
@@ -168,6 +170,12 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
     for (unsigned int j=0; j<6; j++) m_ref_force_out[i].data[j] = 0.0;
     m_ref_forceOut[i] = new OutPort<TimedDoubleSeq>(std::string("ref_"+fsensor_names[i]+"Out").c_str(), m_ref_force_out[i]);
     registerOutPort(std::string("ref_"+fsensor_names[i]+"Out").c_str(), *m_ref_forceOut[i]);
+    std::cerr << "[" << m_profile.instance_name << "]   name = " << fsensor_names[i] << std::endl;
+    // sbp ref Outport
+    m_sbp_ref_force_out[i].data.length(6);
+    for (unsigned int j=0; j<6; j++) m_sbp_ref_force_out[i].data[j] = 0.0;
+    m_sbp_ref_forceOut[i] = new OutPort<TimedDoubleSeq>(std::string("sbp_ref_"+fsensor_names[i]+"Out").c_str(), m_sbp_ref_force_out[i]);
+    registerOutPort(std::string("sbp_ref_"+fsensor_names[i]+"Out").c_str(), *m_sbp_ref_forceOut[i]);
     std::cerr << "[" << m_profile.instance_name << "]   name = " << fsensor_names[i] << std::endl;
   }
 
@@ -217,9 +225,18 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
       pre_df_ff.push_back(hrp::Vector3::Zero());
       pre_dm_act.push_back(hrp::Vector3::Zero());
       pre_dm_ff.push_back(hrp::Vector3::Zero());
+
+      sbp_ref_force.push_back(hrp::Vector3::Zero());
+      sbp_ref_moment.push_back(hrp::Vector3::Zero());
+      pre_sbp_df_act.push_back(hrp::Vector3::Zero());
+      pre_sbp_df_ff.push_back(hrp::Vector3::Zero());
+      pre_sbp_dm_act.push_back(hrp::Vector3::Zero());
+      pre_sbp_dm_ff.push_back(hrp::Vector3::Zero());
       //ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt)));
       ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
       ref_moment_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
+      sbp_ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
+      sbp_ref_moment_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
       transition_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt)));
       std::cerr << "[" << m_profile.instance_name << "] End Effector [" << ee_name << "]" << ee_target << " " << ee_base << std::endl;
       std::cerr << "[" << m_profile.instance_name << "]   target = " << ee_target << ", base = " << ee_base << ", sensor_name = " << eet.sensor_name << std::endl;
@@ -243,6 +260,15 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
         m_RFUParam[ee_name].moment_p_gain_ff = hrp::Vector3::Zero();
         m_RFUParam[ee_name].moment_d_gain_act = hrp::Vector3::Zero();
         m_RFUParam[ee_name].moment_d_gain_ff = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].sbp_p_gain_act = hrp::Vector3(0.3, 0.3, 0.3);
+        m_RFUParam[ee_name].sbp_p_gain_ff = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].sbp_d_gain_act = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].sbp_d_gain_ff = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].sbp_i_gain = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].sbp_moment_p_gain_act = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].sbp_moment_p_gain_ff = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].sbp_moment_d_gain_act = hrp::Vector3::Zero();
+        m_RFUParam[ee_name].sbp_moment_d_gain_ff = hrp::Vector3::Zero();
         m_RFUParam[ee_name].act_force_filter->setCutOffFreq(25.0); // [Hz]
         ee_trans eet;
         eet.localPos = hrp::Vector3::Zero();
@@ -252,8 +278,12 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
         ee_index_map.insert(std::pair<std::string, size_t>(ee_name, ref_force.size()));
         ref_force.push_back(hrp::Vector3::Zero());
         ref_moment.push_back(hrp::Vector3::Zero());
+        sbp_ref_force.push_back(hrp::Vector3::Zero());
+        sbp_ref_moment.push_back(hrp::Vector3::Zero());
         ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
         ref_moment_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
+        sbp_ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
+        sbp_ref_moment_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
         transition_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt)));
     }
     // For ObjExtMoment0
@@ -274,8 +304,12 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
         ee_index_map.insert(std::pair<std::string, size_t>(ee_name, ref_force.size()));
         ref_force.push_back(hrp::Vector3::Zero());
         ref_moment.push_back(hrp::Vector3::Zero());
+        sbp_ref_force.push_back(hrp::Vector3::Zero());
+        sbp_ref_moment.push_back(hrp::Vector3::Zero());
         ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
         ref_moment_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
+        sbp_ref_force_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
+        sbp_ref_moment_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(3, m_dt, interpolator::LINEAR)));
         transition_interpolator.insert(std::pair<std::string, interpolator*>(ee_name, new interpolator(1, m_dt)));
     }
   }
@@ -307,11 +341,19 @@ RTC::ReturnCode_t ReferenceForceUpdater::onFinalize()
   for ( std::map<std::string, interpolator*>::iterator it = ref_moment_interpolator.begin(); it != ref_moment_interpolator.end(); it++ ) {
     delete it->second;
   }
+  for ( std::map<std::string, interpolator*>::iterator it = sbp_ref_force_interpolator.begin(); it != sbp_ref_force_interpolator.end(); it++ ) {
+    delete it->second;
+  }
+  for ( std::map<std::string, interpolator*>::iterator it = sbp_ref_moment_interpolator.begin(); it != sbp_ref_moment_interpolator.end(); it++ ) {
+    delete it->second;
+  }
   for ( std::map<std::string, interpolator*>::iterator it = transition_interpolator.begin(); it != transition_interpolator.end(); it++ ) {
     delete it->second;
   }
   ref_force_interpolator.clear();
   ref_moment_interpolator.clear();
+  sbp_ref_force_interpolator.clear();
+  sbp_ref_moment_interpolator.clear();
   transition_interpolator.clear();
   return RTC::RTC_OK;
 }
@@ -425,12 +467,16 @@ RTC::ReturnCode_t ReferenceForceUpdater::onExecute(RTC::UniqueId ec_id)
         else {
             if ( arm == footoriginextmoment_name ) {
                 for (unsigned int j=0; j<3; j++ ) ref_force[arm_idx](j) = default_ref_foot_origin_ext_moment(j);
+                for (unsigned int j=0; j<3; j++ ) sbp_ref_force[arm_idx](j) = default_ref_foot_origin_ext_moment(j);
             } else if ( arm == objextmoment0_name ) {
                 for (unsigned int j=0; j<3; j++ ) ref_force[arm_idx](j) = 0;
+                for (unsigned int j=0; j<3; j++ ) sbp_ref_force[arm_idx](j) = 0;
             } else {
                 for (unsigned int j=0; j<3; j++ ) {
                     ref_force[arm_idx](j) = m_ref_force_in[arm_idx].data[j];
                     ref_moment[arm_idx](j) = m_ref_force_in[arm_idx].data[j+3];
+                    sbp_ref_force[arm_idx](j) = m_ref_force_in[arm_idx].data[j];
+                    sbp_ref_moment[arm_idx](j) = m_ref_force_in[arm_idx].data[j+3];
                 }
             }
         }
@@ -440,9 +486,12 @@ RTC::ReturnCode_t ReferenceForceUpdater::onExecute(RTC::UniqueId ec_id)
         for (unsigned int i=0; i<m_ref_force_in.size(); i++ ){
           for (unsigned int j=0; j<6; j++ ) {
             m_ref_force_out[i].data[j] = m_ref_force_in[i].data[j];
+            m_sbp_ref_force_out[i].data[j] = m_ref_force_in[i].data[j];
           }
           m_ref_force_out[i].tm = m_ref_force_in[i].tm;
           m_ref_forceOut[i]->write();
+          m_sbp_ref_force_out[i].tm = m_ref_force_in[i].tm;
+          m_sbp_ref_forceOut[i]->write();
         }
         m_refFootOriginExtMoment.data.x = default_ref_foot_origin_ext_moment(0);
         m_refFootOriginExtMoment.data.y = default_ref_foot_origin_ext_moment(1);
@@ -472,6 +521,12 @@ RTC::ReturnCode_t ReferenceForceUpdater::onExecute(RTC::UniqueId ec_id)
       if (!ref_moment_interpolator[arm]->isEmpty()) {
         ref_moment_interpolator[arm]->get(ref_moment[ee_index_map[arm]].data(), true);
       }
+      if (!sbp_ref_force_interpolator[arm]->isEmpty()) {
+        sbp_ref_force_interpolator[arm]->get(sbp_ref_force[ee_index_map[arm]].data(), true);
+      }
+      if (!sbp_ref_moment_interpolator[arm]->isEmpty()) {
+        sbp_ref_moment_interpolator[arm]->get(sbp_ref_moment[ee_index_map[arm]].data(), true);
+      }
     }
   }
 
@@ -479,25 +534,34 @@ RTC::ReturnCode_t ReferenceForceUpdater::onExecute(RTC::UniqueId ec_id)
   for (unsigned int i=0; i<m_ref_force_in.size(); i++ ){
     for (unsigned int j=0; j<6; j++ ) {
       m_ref_force_out[i].data[j] = m_ref_force_in[i].data[j];
+      m_sbp_ref_force_out[i].data[j] = m_ref_force_in[i].data[j];
     }
     if (m_RFUParam[objextmoment0_name].is_active) { // TODO:tempolary
         size_t idx = ee_index_map[objextmoment0_name];
         for (unsigned int j=0; j<3; j++ ) {
             m_ref_force_out[i].data[j] = m_ref_force_in[i].data[j];
+            m_sbp_ref_force_out[i].data[j] = m_ref_force_in[i].data[j];
             if (ee_index_map["rarm"] == i) {
                 m_ref_force_out[i].data[j] += ref_force[idx](j) * transition_interpolator_ratio[idx];
+                m_sbp_ref_force_out[i].data[j] += sbp_ref_force[idx](j) * transition_interpolator_ratio[idx];
             } else if (ee_index_map["larm"] == i) {
                 m_ref_force_out[i].data[j] -= ref_force[idx](j) * transition_interpolator_ratio[idx];
+                m_sbp_ref_force_out[i].data[j] += sbp_ref_force[idx](j) * transition_interpolator_ratio[idx];
             }
         }
     } else {
         for (unsigned int j=0; j<3; j++ ) {
             m_ref_force_out[i].data[j] = ref_force[i](j) * transition_interpolator_ratio[i] + m_ref_force_in[i].data[j] * (1-transition_interpolator_ratio[i]);
             m_ref_force_out[i].data[j+3] = ref_moment[i](j) * transition_interpolator_ratio[i] + m_ref_force_in[i].data[j+3] * (1-transition_interpolator_ratio[i]);
+
+            m_sbp_ref_force_out[i].data[j] = sbp_ref_force[i](j) * transition_interpolator_ratio[i] + m_ref_force_in[i].data[j] * (1-transition_interpolator_ratio[i]);
+            m_sbp_ref_force_out[i].data[j+3] = sbp_ref_moment[i](j) * transition_interpolator_ratio[i] + m_ref_force_in[i].data[j+3] * (1-transition_interpolator_ratio[i]);
         }
     }
     m_ref_force_out[i].tm = m_ref_force_in[i].tm;
     m_ref_forceOut[i]->write();
+    m_sbp_ref_force_out[i].tm = m_ref_force_in[i].tm;
+    m_sbp_ref_forceOut[i]->write();
   }
 
   // FootOriginExtMoment
@@ -600,11 +664,16 @@ void ReferenceForceUpdater::updateRefFootOriginExtMoment (const std::string& arm
     double interpolation_time = 0;
     size_t arm_idx = ee_index_map[arm];
     hrp::Vector3 df = m_RFUParam[arm].act_force_filter->getCurrentValue();
-    if (!m_RFUParam[arm].is_hold_value)
+    if (!m_RFUParam[arm].is_hold_value) {
         ref_force[arm_idx] = ref_force[arm_idx] + (m_RFUParam[arm].p_gain_act * transition_interpolator_ratio[arm_idx]).cwiseProduct(df);
+        sbp_ref_force[arm_idx] = sbp_ref_force[arm_idx] + (m_RFUParam[arm].sbp_p_gain_act * transition_interpolator_ratio[arm_idx]).cwiseProduct(df);
+    }
     interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
     if ( ref_force_interpolator[arm]->isEmpty() ) {
         ref_force_interpolator[arm]->setGoal(ref_force[arm_idx].data(), interpolation_time, true);
+    }
+    if ( sbp_ref_force_interpolator[arm]->isEmpty() ) {
+        sbp_ref_force_interpolator[arm]->setGoal(sbp_ref_force[arm_idx].data(), interpolation_time, true);
     }
     if ( DEBUGP ) {
         std::cerr << "[" << m_profile.instance_name << "] Updating reference moment [" << arm << "]" << std::endl;
@@ -635,10 +704,14 @@ void ReferenceForceUpdater::updateRefObjExtMoment0 (const std::string& arm)
     }
     if (!m_RFUParam[arm].is_hold_value) {
         ref_force[arm_idx] += hrp::Vector3(0,0,((m_RFUParam[arm].p_gain_act(2) * transition_interpolator_ratio[arm_idx]) * df)(2));
+        sbp_ref_force[arm_idx] += hrp::Vector3(0,0,((m_RFUParam[arm].sbp_p_gain_act(2) * transition_interpolator_ratio[arm_idx]) * df)(2));
     }
     double interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
     if ( ref_force_interpolator[arm]->isEmpty() ) {
         ref_force_interpolator[arm]->setGoal(ref_force[arm_idx].data(), interpolation_time, true);
+    }
+    if ( sbp_ref_force_interpolator[arm]->isEmpty() ) {
+        sbp_ref_force_interpolator[arm]->setGoal(sbp_ref_force[arm_idx].data(), interpolation_time, true);
     }
     if ( DEBUGP ) {
         std::cerr << "[" << m_profile.instance_name << "] Updating reference res moment [" << arm << "]" << std::endl;
@@ -663,7 +736,9 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     double interpolation_time = 0;
     size_t arm_idx = ee_index_map[arm];
     hrp::Link* target_link = m_robot->link(ee_map[arm].target_name);
-    hrp::Vector3 abs_motion_dir, abs_motion_dir_abs, abs_motion_dir_bool, df_act, df_ff, d_df_act, d_df_ff, dm_act, dm_ff, d_dm_act, d_dm_ff;
+    hrp::Vector3 abs_motion_dir, abs_motion_dir_abs, abs_motion_dir_bool;
+    hrp::Vector3 df_act, df_ff, d_df_act, d_df_ff, dm_act, dm_ff, d_dm_act, d_dm_ff;
+    hrp::Vector3 sbp_df_act, sbp_df_ff, sbp_d_df_act, sbp_d_df_ff, sbp_dm_act, sbp_dm_ff, sbp_d_dm_act, sbp_d_dm_ff;
     hrp::Matrix33 ee_rot;
     ee_rot = target_link->R * ee_map[arm].localR;
     if ( m_RFUParam[arm].frame=="local" )
@@ -681,6 +756,22 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
         rats::mid_rot(current_foot_mid_rot, 0.5, foot_rot[0], foot_rot[1]);
         abs_motion_dir = current_foot_mid_rot * m_RFUParam[arm].motion_dir;
     }
+
+    // exclude axis whose gain is too small
+    // and create abs_motion_dir_**
+    for (int i = 0; i < abs_motion_dir.size(); i++) {
+        if (std::fabs(abs_motion_dir[i]) < 1e-5) {
+            abs_motion_dir_abs[i] = 0.0;
+            abs_motion_dir_bool[i] = 0.0;
+        } else if (std::signbit(abs_motion_dir[i])) {
+            abs_motion_dir_abs[i] = -1.0 * abs_motion_dir[i];
+            abs_motion_dir_bool[i] = 1.0;
+        } else {
+            abs_motion_dir_abs[i] = abs_motion_dir[i];
+            abs_motion_dir_bool[i] = 1.0;
+        }
+    }
+
     // Calc abs force/moment diff
     hrp::Vector3 ff_ref_force = hrp::Vector3(m_ref_force_in[arm_idx].data[0], m_ref_force_in[arm_idx].data[1], m_ref_force_in[arm_idx].data[2]);
     hrp::Vector3 ff_ref_moment = hrp::Vector3(m_ref_force_in[arm_idx].data[3], m_ref_force_in[arm_idx].data[4], m_ref_force_in[arm_idx].data[5]);
@@ -697,20 +788,6 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     pre_dm_act[arm_idx] = dm_act;
     pre_dm_ff[arm_idx] = dm_ff;
 
-    // exclude axis whose gain is too small
-    // and create abs_motion_dir_**
-    for (int i = 0; i < abs_motion_dir.size(); i++) {
-        if (std::fabs(abs_motion_dir[i]) < 1e-5) {
-            abs_motion_dir_abs[i] = 0.0;
-            abs_motion_dir_bool[i] = 0.0;
-        } else if (std::signbit(abs_motion_dir[i])) {
-            abs_motion_dir_abs[i] = -1.0 * abs_motion_dir[i];
-            abs_motion_dir_bool[i] = 1.0;
-        } else {
-            abs_motion_dir_abs[i] = abs_motion_dir[i];
-            abs_motion_dir_bool[i] = 1.0;
-        }
-    }
     hrp::Matrix33 S_weight = abs_motion_dir_abs.asDiagonal(); // selection matrix without dir, with weight
     hrp::Matrix33 S_dir = abs_motion_dir.asDiagonal();        // selection matrix with dir, with weight
     hrp::Matrix33 S_bool = abs_motion_dir_bool.asDiagonal();  // selection matrix (0, 1)
@@ -742,6 +819,53 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
     if ( ref_force_interpolator[arm]->isEmpty() ) {
         ref_force_interpolator[arm]->setGoal(ref_force[arm_idx].data(), interpolation_time, true);
+    }
+
+    // sbp ref force/moment
+    // Calc abs force/moment diff
+    hrp::Vector3 sbp_ff_ref_force = hrp::Vector3(m_ref_force_in[arm_idx].data[0], m_ref_force_in[arm_idx].data[1], m_ref_force_in[arm_idx].data[2]);
+    hrp::Vector3 sbp_ff_ref_moment = hrp::Vector3(m_ref_force_in[arm_idx].data[3], m_ref_force_in[arm_idx].data[4], m_ref_force_in[arm_idx].data[5]);
+    sbp_df_act = m_RFUParam[arm].act_force_filter->getCurrentValue() - sbp_ref_force[arm_idx];
+    sbp_df_ff = sbp_ff_ref_force - sbp_ref_force[arm_idx];
+    sbp_d_df_act = sbp_df_act - pre_sbp_df_act[arm_idx];
+    sbp_d_df_ff = sbp_df_ff - pre_sbp_df_ff[arm_idx];
+    pre_sbp_df_act[arm_idx] = sbp_df_act;
+    pre_sbp_df_ff[arm_idx] = sbp_df_ff;
+    sbp_dm_act = m_RFUParam[arm].act_moment_filter->getCurrentValue() - sbp_ref_moment[arm_idx];
+    sbp_dm_ff = sbp_ff_ref_moment - sbp_ref_moment[arm_idx];
+    sbp_d_dm_act = sbp_dm_act - pre_sbp_dm_act[arm_idx];
+    sbp_d_dm_ff = sbp_dm_ff - pre_sbp_dm_ff[arm_idx];
+    pre_sbp_dm_act[arm_idx] = sbp_dm_act;
+    pre_sbp_dm_ff[arm_idx] = sbp_dm_ff;
+
+    hrp::Vector3 sbp_selected_act = S_weight * sbp_df_act;
+    hrp::Vector3 sbp_selected_ff = S_weight * sbp_df_ff;
+    hrp::Vector3 sbp_d_selected_act = S_weight * sbp_d_df_act;
+    hrp::Vector3 sbp_d_selected_ff = S_weight * sbp_d_df_ff;
+    // not update ref-force into act-force when act-force is negative in motion_dir
+    for (int i = 0; i < 3; i += 1) {
+      if ((S_dir * sbp_df_act)[i] < 0.0 && (S_dir * sbp_ref_force[arm_idx])[i] < 0.0) {
+          sbp_selected_act[i] = sbp_d_selected_act[i] = 0;
+      }
+    }
+    // hrp::Vector3 in_f = ee_rot * internal_force;
+    if (!m_RFUParam[arm].is_hold_value) {
+        sbp_ref_force[arm_idx] = S_bool * sbp_ref_force[arm_idx] + in_f +
+            (m_RFUParam[arm].sbp_p_gain_act.cwiseProduct(sbp_selected_act) +
+             m_RFUParam[arm].sbp_d_gain_act.cwiseProduct(sbp_d_selected_act) +
+             m_RFUParam[arm].sbp_p_gain_ff.cwiseProduct(sbp_selected_ff) +
+             m_RFUParam[arm].sbp_d_gain_ff.cwiseProduct(sbp_d_selected_ff))
+            * transition_interpolator_ratio[arm_idx];
+        sbp_ref_moment[arm_idx] = sbp_ref_moment[arm_idx] + in_f +
+            (m_RFUParam[arm].sbp_moment_p_gain_act.cwiseProduct(sbp_dm_act) +
+             m_RFUParam[arm].sbp_moment_d_gain_act.cwiseProduct(sbp_d_dm_act) +
+             m_RFUParam[arm].sbp_moment_p_gain_ff.cwiseProduct(sbp_dm_ff) +
+             m_RFUParam[arm].sbp_moment_d_gain_ff.cwiseProduct(sbp_d_dm_ff))
+            * transition_interpolator_ratio[arm_idx];
+    }
+    interpolation_time = (1/m_RFUParam[arm].update_freq) * m_RFUParam[arm].update_time_ratio;
+    if ( sbp_ref_force_interpolator[arm]->isEmpty() ) {
+        sbp_ref_force_interpolator[arm]->setGoal(sbp_ref_force[arm_idx].data(), interpolation_time, true);
     }
     if ( DEBUGP ) {
         std::cerr << "[" << m_profile.instance_name << "] Updating reference force [" << arm << "]" << std::endl;
@@ -837,6 +961,16 @@ bool ReferenceForceUpdater::setReferenceForceUpdaterParam(const std::string& i_n
       m_RFUParam[arm].moment_p_gain_ff(i)  = i_param.moment_p_gain_ff[i];
       m_RFUParam[arm].moment_d_gain_act(i) = i_param.moment_d_gain_act[i];
       m_RFUParam[arm].moment_d_gain_ff(i)  = i_param.moment_d_gain_ff[i];
+
+      m_RFUParam[arm].sbp_p_gain_act(i)        = i_param.sbp_p_gain_act[i];
+      m_RFUParam[arm].sbp_p_gain_ff(i)         = i_param.sbp_p_gain_ff[i];
+      m_RFUParam[arm].sbp_d_gain_act(i)        = i_param.sbp_d_gain_act[i];
+      m_RFUParam[arm].sbp_d_gain_ff(i)         = i_param.sbp_d_gain_ff[i];
+      m_RFUParam[arm].sbp_i_gain(i)            = i_param.sbp_i_gain[1];
+      m_RFUParam[arm].sbp_moment_p_gain_act(i) = i_param.sbp_moment_p_gain_act[i];
+      m_RFUParam[arm].sbp_moment_p_gain_ff(i)  = i_param.sbp_moment_p_gain_ff[i];
+      m_RFUParam[arm].sbp_moment_d_gain_act(i) = i_param.sbp_moment_d_gain_act[i];
+      m_RFUParam[arm].sbp_moment_d_gain_ff(i)  = i_param.sbp_moment_d_gain_ff[i];
   }
   m_RFUParam[arm].is_hold_value = i_param.is_hold_value;
   m_RFUParam[arm].transition_time = i_param.transition_time;
@@ -868,6 +1002,16 @@ bool ReferenceForceUpdater::getReferenceForceUpdaterParam(const std::string& i_n
       i_param->moment_p_gain_ff[i]  = m_RFUParam[arm].moment_p_gain_ff(i);
       i_param->moment_d_gain_act[i] = m_RFUParam[arm].moment_d_gain_act(i);
       i_param->moment_d_gain_ff[i]  = m_RFUParam[arm].moment_d_gain_ff(i);
+
+      i_param->sbp_p_gain_act[i]        = m_RFUParam[arm].sbp_p_gain_act(i);
+      i_param->sbp_p_gain_ff[i]         = m_RFUParam[arm].sbp_p_gain_ff(i);
+      i_param->sbp_d_gain_act[i]        = m_RFUParam[arm].sbp_d_gain_act(i);
+      i_param->sbp_d_gain_ff[i]         = m_RFUParam[arm].sbp_d_gain_ff(i);
+      i_param->sbp_i_gain[i]            = m_RFUParam[arm].sbp_i_gain(i);
+      i_param->sbp_moment_p_gain_act[i] = m_RFUParam[arm].sbp_moment_p_gain_act(i);
+      i_param->sbp_moment_p_gain_ff[i]  = m_RFUParam[arm].sbp_moment_p_gain_ff(i);
+      i_param->sbp_moment_d_gain_act[i] = m_RFUParam[arm].sbp_moment_d_gain_act(i);
+      i_param->sbp_moment_d_gain_ff[i]  = m_RFUParam[arm].sbp_moment_d_gain_ff(i);
   }
   i_param->update_freq = m_RFUParam[arm].update_freq;
   i_param->update_time_ratio = m_RFUParam[arm].update_time_ratio;
