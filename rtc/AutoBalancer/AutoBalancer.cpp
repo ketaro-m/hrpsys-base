@@ -491,10 +491,12 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     }
 
     m_ref_force.resize(nforce);
-    m_sbp_ref_force.resize(nforce);
     m_ref_forceIn.resize(nforce);
+    m_sbp_ref_force_in.resize(nforce);
+    m_sbp_ref_forceIn.resize(nforce);
     m_force.resize(nforce);
     m_ref_forceOut.resize(nforce);
+    m_sbp_ref_force.resize(nforce);
     m_sbp_ref_forceOut.resize(nforce);
     m_limbCOPOffset.resize(nforce);
     m_limbCOPOffsetOut.resize(nforce);
@@ -521,8 +523,13 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         registerInPort(std::string("ref_"+sensor_names[i]).c_str(), *m_ref_forceIn[i]);
         std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("ref_"+sensor_names[i]) << std::endl;
         ref_forces.push_back(hrp::Vector3(0,0,0));
-        sbp_ref_forces.push_back(hrp::Vector3(0,0,0));
         ref_moments.push_back(hrp::Vector3(0,0,0));
+        // sbp ref force
+        m_sbp_ref_forceIn[i] = new InPort<TimedDoubleSeq>(std::string("sbp_"+sensor_names[i]).c_str(), m_sbp_ref_force_in[i]);
+        m_sbp_ref_force_in[i].data.length(6);
+        registerInPort(std::string("sbp_"+sensor_names[i]).c_str(), *m_sbp_ref_forceIn[i]);
+        std::cerr << "[" << m_profile.instance_name << "]   name = " << std::string("sbp_"+sensor_names[i]) << std::endl;
+        sbp_ref_forces.push_back(hrp::Vector3(0,0,0));
         sbp_ref_moments.push_back(hrp::Vector3(0,0,0));
         // actual inport
         m_wrenchesIn[i] = new InPort<TimedDoubleSeq>(sensor_names[i].c_str(), m_wrenches[i]);
@@ -733,6 +740,11 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     for (unsigned int i=0; i<m_ref_forceIn.size(); i++){
         if ( m_ref_forceIn[i]->isNew() ) {
             m_ref_forceIn[i]->read();
+        }
+    }
+    for (unsigned int i=0; i<m_sbp_ref_forceIn.size(); i++){
+        if ( m_sbp_ref_forceIn[i]->isNew() ) {
+            m_sbp_ref_forceIn[i]->read();
         }
     }
     if (m_optionalDataIn.isNew()) {
@@ -1531,6 +1543,11 @@ void AutoBalancer::rotateRefForcesForFixCoords (coordinates& tmp_fix_coords)
       // world frame
       ref_forces[i] = tmp_fix_coords.rot * hrp::Vector3(m_ref_force[i].data[0], m_ref_force[i].data[1], m_ref_force[i].data[2]);
       ref_moments[i] = tmp_fix_coords.rot * hrp::Vector3(m_ref_force[i].data[3], m_ref_force[i].data[4], m_ref_force[i].data[5]);
+    }
+    /* update ref_forces ;; StateHolder's absolute -> AutoBalancer's absolute */
+    for (size_t i = 0; i < m_sbp_ref_forceIn.size(); i++) {
+      sbp_ref_forces[i] = tmp_fix_coords.rot * hrp::Vector3(m_sbp_ref_force_in[i].data[0], m_sbp_ref_force_in[i].data[1], m_sbp_ref_force_in[i].data[2]);
+      sbp_ref_moments[i] = tmp_fix_coords.rot * hrp::Vector3(m_sbp_ref_force_in[i].data[3], m_sbp_ref_force_in[i].data[4], m_sbp_ref_force_in[i].data[5]);
     }
     sbp_offset = tmp_fix_coords.rot * hrp::Vector3(sbp_offset);
 };
@@ -3892,10 +3909,6 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
 void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height)
 {
   hrp::Vector3 denom, nume;
-  for (int i = 0; i < ref_forces.size(); i++) {
-      sbp_ref_forces[i] = sbp_ref_force_gain * ref_forces[i] + (1 - sbp_ref_force_gain) * sbp_ref_forces[i];
-      sbp_ref_moments[i] = sbp_ref_moment_gain * ref_moments[i] + (1 - sbp_ref_moment_gain) * sbp_ref_moments[i];
-  }
   // output to port
   for (int i = 0; i < sbp_ref_forces.size(); i++) {
       for (int j = 0; j < sbp_ref_forces[0].size(); j++) {

@@ -467,16 +467,21 @@ class HrpsysConfigurator(object):
                              self.st.port("limbCOPOffset_"+sen))
             if self.es:
                 ref_force_port_from = self.es.port(sen+"Out")
+                sbp_ref_force_port_from = self.rfu.port("sbp_ref_"+sen+"Out") # HACK: idk if es should stop sbp_ref_force
             elif self.rfu:
                 ref_force_port_from = self.rfu.port("ref_"+sen+"Out")
+                sbp_ref_force_port_from = self.rfu.port("sbp_ref_"+sen+"Out")
             else:
                 ref_force_port_from = self.sh.port(sen+"Out")
+                sbp_ref_force_port_from = self.sh.port(sen+"Out")
             if self.ic:
                 connectPorts(ref_force_port_from,
                              self.ic.port("ref_" + sen+"In"))
             if self.abc:
                 connectPorts(ref_force_port_from,
                              self.abc.port("ref_" + sen))
+                connectPorts(sbp_ref_force_port_from,
+                             self.abc.port("sbp_" + sen))
                 if self.rfu:
                     connectPorts(self.sh.port(sen+"Out"),
                                  self.rfu.port("ref_" + sen+"In"))
