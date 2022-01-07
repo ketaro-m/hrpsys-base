@@ -1496,10 +1496,17 @@ namespace rats
                 double end_cp_back = std::exp(omega * tmp_t) * cp(0) + (std::exp(omega * tmp_t) - 1) * safe_leg_margin[1];
                 double end_cp_outside = std::exp(omega * tmp_t) * cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * tmp_t) - 1) * safe_leg_margin[2];
                 double end_cp_inside = std::exp(omega * tmp_t) * cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * tmp_t) - 1) * safe_leg_margin[3];
-                std::vector<Eigen::Vector2d> rcr = {Eigen::Vector2d(end_cp_front, end_cp_outside),
-                                                    Eigen::Vector2d(end_cp_back, end_cp_outside),
-                                                    Eigen::Vector2d(end_cp_back, end_cp_inside),
-                                                    Eigen::Vector2d(end_cp_front, end_cp_inside)};
+                // < C++11
+                // std::vector<Eigen::Vector2d> rcr = {Eigen::Vector2d(end_cp_front, end_cp_outside),
+                //                                     Eigen::Vector2d(end_cp_back, end_cp_outside),
+                //                                     Eigen::Vector2d(end_cp_back, end_cp_inside),
+                //                                     Eigen::Vector2d(end_cp_front, end_cp_inside)};
+                // C++98
+                std::vector<Eigen::Vector2d> rcr(4);
+                rcr[0] = Eigen::Vector2d(end_cp_front, end_cp_outside);
+                rcr[1] = Eigen::Vector2d(end_cp_back, end_cp_outside);
+                rcr[2] = Eigen::Vector2d(end_cp_back, end_cp_inside);
+                rcr[3] = Eigen::Vector2d(end_cp_front, end_cp_inside);
                 std::vector<Eigen::Vector2d> s_cand(4); // intersection
                 for (size_t i = 0; i < rcr.size(); i++) {
                   double tmp = fabs(pb(0) - pa(0)) < 1e-3 ? 1e-3 : (pb(0) - pa(0)); // limit 1[mm]
