@@ -77,6 +77,8 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
         std::vector<IIRFilter> am_filters;
     public:
         hrp::dvector dq_weight_all, q_ref, q_ref_max_dq, q_ref_constraint_weight;
+        double q_ref_err_thre;
+        bool is_exceed_q_ref_err_thre;
         hrp::Vector3 cur_momentum_around_COM, cur_momentum_around_COM_filtered, rootlink_rpy_llimit, rootlink_rpy_ulimit;
         std::vector<CollisionData> arm_leg_collision;
         FullbodyInverseKinematicsSolver (hrp::BodyPtr _robot, const std::string& _print_str, const double _dt)
@@ -111,6 +113,8 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                 arm_leg_collision[1].target_id = _robot->link("L_WRIST_Y")->jointId;
                 arm_leg_collision[1].target_localp = hrp::Vector3(-0.01, 0, 0);
             }
+            is_exceed_q_ref_err_thre = false;
+            q_ref_err_thre = deg2rad(30.0);
         };
         ~FullbodyInverseKinematicsSolver () {};
         bool checkIKConvergence(const hrp::BodyPtr _robot, const std::vector<IKConstraint>& _ikc_list){
@@ -151,8 +155,13 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                     _robot->calcTotalMomentum(tmp_P, tmp_L);//calcTotalMomentumは漸化的にWorld周りの並進＋回転運動量を出す
                     cur_momentum_around_COM = tmp_L - _robot->calcCM().cross(tmp_P);
 //                    _robot->calcTotalMomentumFromJacobian(tmp_P, cur_momentum_around_COM);//calcTotalMomentumFromJacobianは重心ヤコビアンと重心周り角運動量ヤコビアンを用いて重心周りの並進＋回転運動量を出す
-                    for(int i=0; i<3; i++){
-                        cur_momentum_around_COM_filtered(i) = am_filters[i].passFilter(cur_momentum_around_COM(i));
+                    // few iteration cause vaibration of momentum
+                    if (_max_iteration > 3) {
+                        cur_momentum_around_COM_filtered = cur_momentum_around_COM;
+                    } else {
+                        for(int i=0; i<3; i++){
+                            cur_momentum_around_COM_filtered(i) = am_filters[i].passFilter(cur_momentum_around_COM(i));
+                        }
                     }
                     loop++;
                     if(checkIKConvergence(_robot, _ikc_list)){ break; }
@@ -208,15 +217,18 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                 }
 
                 // set desired joint pose constraint into Jacobian
+                double q_err = 0.0;
                 for(int qid=0; qid<ALL_DOF; qid++){
                     if(q_ref_constraint_weight(qid) > 0.0){
                         J_all.row(cur_cid_all)(qid) = 1;
                         err_all(cur_cid_all) = (qid < J_DOF) ? (q_ref(qid) - _robot->joint(qid)->q) : (q_ref(qid) - hrp::rpyFromRot(_robot->rootLink()->R)(qid-J_DOF));
+                        q_err += err_all(cur_cid_all) * err_all(cur_cid_all);
                         LIMIT_MINMAX(err_all(cur_cid_all), -q_ref_max_dq(qid), q_ref_max_dq(qid));
                         constraint_weight_all(cur_cid_all) = q_ref_constraint_weight(qid);
                         cur_cid_all++;
                     }
                 }
+                is_exceed_q_ref_err_thre = (sqrt(q_err) > q_ref_err_thre);
 
                 // joint limit avoidance (copy from JointPathEx)
                 hrp::dvector dq_weight_all_jlim = hrp::dvector::Ones(ALL_DOF);

@@ -395,6 +395,8 @@ class AutoBalancer
   double cog_z_constraint, touch_wall_retrieve_time, arm_swing_deg;
   bool debug_read_steppable_region;
   rats::coordinates initial_fix_coords;
+  bool was_exceed_q_ref_err_thre;
+  int ik_max_loop;
 };
 
 
