@@ -976,6 +976,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abc, 'cogOut')
             self.connectLoggerPort(self.abc, 'tmp')
             self.connectLoggerPort(self.abc, 'currentLandingPos')
+            self.connectLoggerPort(self.abc, 'allRefWrench')
             self.connectLoggerPort(self.abc, 'allEEComp')
             self.connectLoggerPort(self.abc, 'originRefZmp')
             self.connectLoggerPort(self.abc, 'originRefCog')
