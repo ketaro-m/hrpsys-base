@@ -97,6 +97,7 @@ AutoBalancer::AutoBalancer(RTC::Manager* manager)
       m_walkingStatesOut("walkingStates", m_walkingStates),
       m_sbpCogOffsetOut("sbpCogOffset", m_sbpCogOffset),
       m_cogOut("cogOut", m_cog),
+      m_allRefWrenchOut("allRefWrench", m_allRefWrench),
       m_allEECompOut("allEEComp", m_allEEComp),
       m_landingTargetOut("landingTarget", m_landingTarget),
       m_endCogStateOut("endCogState", m_endCogState),
@@ -164,6 +165,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("tmpOut", m_tmpOut);
     addOutPort("currentLandingPosOut", m_currentLandingPosOut);
     addOutPort("diffStaticBalancePointOffset", m_diffFootOriginExtMomentOut);
+    addOutPort("allRefWrench", m_allRefWrenchOut);
     addOutPort("allEEComp", m_allEECompOut);
     addOutPort("basePoseOut", m_basePoseOut);
     addOutPort("accRef", m_accRefOut);
@@ -527,6 +529,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
         // actual inport
         m_wrenchesIn[i] = new InPort<TimedDoubleSeq>(sensor_names[i].c_str(), m_wrenches[i]);
         m_wrenches[i].data.length(6);
+        m_allRefWrench.data.length(st->stikp.size() * 6); // 6 is wrench dim
         m_allEEComp.data.length(st->stikp.size() * 6); // 6 is pos+rot dim
         st->wrenches[i].resize(6);
         st->ref_wrenches[i].resize(6);
@@ -1035,10 +1038,14 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_currentLandingPosOut.write();
       for (size_t i = 0; i < st->stikp.size(); i++) {
         for (size_t j = 0; j < 3; j++) {
+          m_allRefWrench.data[6*i+j] = st->stikp[i].ref_force(j);
+          m_allRefWrench.data[6*i+j+3] = st->stikp[i].ref_moment(j);
           m_allEEComp.data[6*i+j] = st->stikp[i].d_pos_swing(j);
           m_allEEComp.data[6*i+j+3] = st->stikp[i].d_rpy_swing(j);
         }
       }
+      m_allRefWrench.tm = m_qRef.tm;
+      m_allRefWrenchOut.write();
       m_allEEComp.tm = m_qRef.tm;
       m_allEECompOut.write();
 
