@@ -1930,7 +1930,7 @@ void AutoBalancer::solveFullbodyIK ()
         // 上半身関節角のq_refへの緩い拘束
         double upper_weight, fly_ratio = 0.0, normal_ratio = 2e-6;
         if (is_natural_walk) normal_ratio = 1e-5;
-        if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) normal_ratio = 2e-6;
+        if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) normal_ratio = 0.0;
         if (gg->get_use_roll_flywheel() || gg->get_use_pitch_flywheel()) {
           if (!prev_roll_state && !prev_pitch_state) {
             if (angular_momentum_interpolator->isEmpty()) upper_weight = normal_ratio;
