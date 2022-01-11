@@ -2471,8 +2471,10 @@ bool AutoBalancer::emergencyStop ()
 {
   std::cerr << "[" << m_profile.instance_name << "] emergencyStop" << std::endl;
   // is_stop_mode = true;
-  gg->emergency_stop();
-  waitFootSteps();
+  // gg->emergency_stop();
+  // waitFootSteps();
+  st->is_emergency_initial = true;
+  st->is_judge_move_object = false;
   return true;
 }
 
@@ -3530,6 +3532,7 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
       for (size_t i = 0; i < st->stikp.size(); i++) std::cerr << "[" << st->stikp[i].swing_dgain.transpose() << "],";
       std::cerr << "]" << std::endl;
   } else std::cerr << "[" << m_profile.instance_name << "]   servo gain parameters cannot be set because of invalid param." << std::endl;
+  st->move_object_thres = i_param.move_object_thres;
 }
 
 void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerParam& i_param)
@@ -3745,6 +3748,7 @@ void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPa
           jscp.swing_dgain[j] = st->stikp[i].swing_dgain(j);
       }
   }
+  i_param.move_object_thres = st->move_object_thres;
 }
 
 void AutoBalancer::copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs)

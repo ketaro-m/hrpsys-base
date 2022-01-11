@@ -631,6 +631,7 @@ module OpenHRP
       double support_phase_min_time;
       double support2swing_transition_time;
       sequence<JointServoControlParameter> joint_servo_control_parameters;
+      double move_object_thres;
     };
 
     /**
