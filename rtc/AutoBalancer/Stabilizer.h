@@ -80,6 +80,7 @@ public:
     cphase contact_phase;
     double phase_time;
     hrp::dvector support_pgain,support_dgain,landing_pgain,landing_dgain, swing_pgain, swing_dgain;
+    hrp::Vector3 emergency_initial_pos;
   };
   enum cmode {MODE_IDLE, MODE_AIR, MODE_ST, MODE_SYNC_TO_IDLE, MODE_SYNC_TO_AIR} control_mode;
   // members
@@ -160,6 +161,7 @@ public:
   double footguided_balance_time_const;
   size_t jump_time_count;
   double jump_initial_velocity;
+  bool is_emergency_initial, is_move_object, is_judge_move_object;
 
   Stabilizer(hrp::BodyPtr& _robot, const std::string& _print_str, const double& _dt)
     : m_robot(_robot), print_str(_print_str), dt(_dt),

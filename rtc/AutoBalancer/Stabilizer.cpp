@@ -142,6 +142,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   after_walking_interpolator->setName(std::string(print_str)+" after_walking_interpolator");
   use_footguided_stabilizer = true;
   footguided_balance_time_const = 0.4; // [s]
+  is_judge_move_object = true;
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -443,6 +444,30 @@ void Stabilizer::getActualParameters ()
     m_robot->calcForwardKinematics();
     act_base_rpy = hrp::rpyFromRot(m_robot->rootLink()->R);
     calcFootOriginCoords (foot_origin_pos, foot_origin_rot);
+    {
+      std::vector<hrp::Vector3> act_ee_p(stikp.size());
+      is_move_object = false;
+      for (size_t i = 0; i < stikp.size(); i++) {
+        hrp::Link* target = m_robot->link(stikp[i].target_name);
+        act_ee_p[i] = target->p + target->R * stikp[i].localp;
+      }
+      if (is_emergency_initial) {
+        is_emergency_initial = false;
+        for (size_t i = 0; i < stikp.size(); i++) {
+          stikp[i].emergency_initial_pos = act_ee_p[i];
+        }
+      } else if (!is_judge_move_object) {
+        double diff_p_norm = 0.0;
+        for (size_t i = 0; i < stikp.size(); i++) {
+          diff_p_norm += (stikp[i].emergency_initial_pos - act_ee_p[i]).norm();
+        }
+        std::cerr << "diff_p_norm: " << diff_p_norm << std::endl;
+        if (diff_p_norm > 0.1) {
+          is_move_object = true;
+          is_judge_move_object = true;
+        }
+      }
+    }
   } else {
     for ( int i = 0; i < m_robot->numJoints(); i++ ) {
       m_robot->joint(i)->q = qorg[i];
@@ -1641,7 +1666,7 @@ void Stabilizer::calcStateForEmergencySignal()
     is_emergency = is_cop_outside && is_seq_interpolating;
     break;
   case OpenHRP::AutoBalancerService::CP:
-    is_emergency = is_cp_outside;
+    is_emergency = is_cp_outside || is_move_object;
     break;
   case OpenHRP::AutoBalancerService::TILT:
     is_emergency = will_fall || is_falling;
