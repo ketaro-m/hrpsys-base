@@ -143,6 +143,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   use_footguided_stabilizer = true;
   footguided_balance_time_const = 0.4; // [s]
   is_judge_move_object = true;
+  move_object_thres = 0.1; // [m]
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -462,7 +463,7 @@ void Stabilizer::getActualParameters ()
           diff_p_norm += (stikp[i].emergency_initial_pos - act_ee_p[i]).norm();
         }
         std::cerr << "diff_p_norm: " << diff_p_norm << std::endl;
-        if (diff_p_norm > 0.1) {
+        if (diff_p_norm > move_object_thres) {
           is_move_object = true;
           is_judge_move_object = true;
         }

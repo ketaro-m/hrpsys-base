@@ -3532,6 +3532,7 @@ void AutoBalancer::setStabilizerParam(const OpenHRP::AutoBalancerService::Stabil
       for (size_t i = 0; i < st->stikp.size(); i++) std::cerr << "[" << st->stikp[i].swing_dgain.transpose() << "],";
       std::cerr << "]" << std::endl;
   } else std::cerr << "[" << m_profile.instance_name << "]   servo gain parameters cannot be set because of invalid param." << std::endl;
+  st->move_object_thres = i_param.move_object_thres;
 }
 
 void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerParam& i_param)
@@ -3747,6 +3748,7 @@ void AutoBalancer::getStabilizerParam(OpenHRP::AutoBalancerService::StabilizerPa
           jscp.swing_dgain[j] = st->stikp[i].swing_dgain(j);
       }
   }
+  i_param.move_object_thres = st->move_object_thres;
 }
 
 void AutoBalancer::copyRatscoords2Footstep(OpenHRP::AutoBalancerService::Footstep& out_fs, const rats::coordinates& in_fs)
