@@ -144,6 +144,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   footguided_balance_time_const = 0.4; // [s]
   is_judge_move_object = true;
   move_object_thres = 0.1; // [m]
+  move_object_dir = hrp::Vector3(1, 1, 1);
 
   // parameters for RUNST
   double ke = 0, tc = 0;
@@ -461,7 +462,8 @@ void Stabilizer::getActualParameters ()
       } else if (!is_judge_move_object) {
         double diff_p_norm = 0.0;
         for (size_t i = 0; i < stikp.size(); i++) {
-          diff_p_norm += (stikp[i].emergency_initial_pos - act_ee_p[i]).norm();
+          hrp::Vector3 selected_diff = (stikp[i].emergency_initial_pos - act_ee_p[i]).cwiseProduct(move_object_dir);
+          diff_p_norm += selected_diff.norm();
         }
         std::cerr << "diff_p_norm: " << diff_p_norm << std::endl;
         if (diff_p_norm > move_object_thres) {
