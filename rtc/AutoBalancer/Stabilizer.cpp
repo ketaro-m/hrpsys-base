@@ -450,7 +450,8 @@ void Stabilizer::getActualParameters ()
       is_move_object = false;
       for (size_t i = 0; i < stikp.size(); i++) {
         hrp::Link* target = m_robot->link(stikp[i].target_name);
-        act_ee_p[i] = target->p + target->R * stikp[i].localp;
+        act_ee_p[i] = target->p + target->R * stikp[i].localp; // root link relative
+        act_ee_p[i] = foot_origin_rot.transpose() * (act_ee_p[i] - foot_origin_pos); // footcoords relative
       }
       if (is_emergency_initial) {
         is_emergency_initial = false;
