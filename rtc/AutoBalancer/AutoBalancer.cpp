@@ -1126,7 +1126,12 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
     st->execStabilizer();
 
     if (!st->reset_emergency_flag && st->is_emergency) {
-      m_emergencySignal.data = 1;
+      hrp::Vector3 sbp = st->ref_foot_origin_rot.transpose() * st->sbp_cog_offset;
+      if (st->act_cp[0] - sbp(0)) {
+        m_emergencySignal.data = 1; // front
+      } else {
+        m_emergencySignal.data = 2; // back
+      }
       m_emergencySignalOut.write();
     }
     if ( m_qRef.data.length() != 0 ) { // initialized
