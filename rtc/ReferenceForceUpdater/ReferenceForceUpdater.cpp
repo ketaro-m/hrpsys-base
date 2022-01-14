@@ -823,8 +823,15 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
 
     // sbp ref force/moment
     // Calc abs force/moment diff
-    hrp::Vector3 sbp_ff_ref_force = hrp::Vector3(m_ref_force_in[arm_idx].data[0], m_ref_force_in[arm_idx].data[1], m_ref_force_in[arm_idx].data[2]);
-    hrp::Vector3 sbp_ff_ref_moment = hrp::Vector3(m_ref_force_in[arm_idx].data[3], m_ref_force_in[arm_idx].data[4], m_ref_force_in[arm_idx].data[5]);
+    // XXX: receive ff for sbp_ref_force/moment from legs data
+    size_t leg_idx;
+    if (arm == "rarm") {
+      leg_idx = ee_index_map["rleg"];
+    } else {
+      leg_idx = ee_index_map["lleg"];
+    }
+    hrp::Vector3 sbp_ff_ref_force = hrp::Vector3(m_ref_force_in[leg_idx].data[0], m_ref_force_in[leg_idx].data[1], m_ref_force_in[leg_idx].data[2]);
+    hrp::Vector3 sbp_ff_ref_moment = hrp::Vector3(m_ref_force_in[leg_idx].data[3], m_ref_force_in[leg_idx].data[4], m_ref_force_in[leg_idx].data[5]);
     sbp_df_act = m_RFUParam[arm].act_force_filter->getCurrentValue() - sbp_ref_force[arm_idx];
     sbp_df_ff = sbp_ff_ref_force - sbp_ref_force[arm_idx];
     sbp_d_df_act = sbp_df_act - pre_sbp_df_act[arm_idx];
