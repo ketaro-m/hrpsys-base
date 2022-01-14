@@ -437,7 +437,19 @@ void Stabilizer::getActualParameters ()
     }
     // tempolary
     m_robot->rootLink()->p = hrp::Vector3::Zero();
+    m_robot->rootLink()->R = target_root_R;
     m_robot->calcForwardKinematics();
+
+    std::vector<hrp::Vector3> act_ee_p(stikp.size());
+    {
+        calcFootOriginCoords (foot_origin_pos, foot_origin_rot);
+        for (size_t i = 0; i < stikp.size(); i++) {
+            hrp::Link* target = m_robot->link(stikp[i].target_name);
+            act_ee_p[i] = target->p + target->R * stikp[i].localp; // root link relative
+            act_ee_p[i] = foot_origin_rot.transpose() * (act_ee_p[i] - foot_origin_pos); // footcoords relative
+        }
+    }
+
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     hrp::Matrix33 senR = sen->link->R * sen->localR;
     hrp::Matrix33 act_Rs(hrp::rotFromRpy(rpy));
@@ -447,13 +459,7 @@ void Stabilizer::getActualParameters ()
     act_base_rpy = hrp::rpyFromRot(m_robot->rootLink()->R);
     calcFootOriginCoords (foot_origin_pos, foot_origin_rot);
     {
-      std::vector<hrp::Vector3> act_ee_p(stikp.size());
       is_move_object = false;
-      for (size_t i = 0; i < stikp.size(); i++) {
-        hrp::Link* target = m_robot->link(stikp[i].target_name);
-        act_ee_p[i] = target->p + target->R * stikp[i].localp; // root link relative
-        act_ee_p[i] = foot_origin_rot.transpose() * (act_ee_p[i] - foot_origin_pos); // footcoords relative
-      }
       if (is_emergency_initial) {
         is_emergency_initial = false;
         for (size_t i = 0; i < stikp.size(); i++) {
