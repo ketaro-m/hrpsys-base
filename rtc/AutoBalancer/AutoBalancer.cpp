@@ -1129,6 +1129,10 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       m_emergencySignal.data = 1;
       m_emergencySignalOut.write();
     }
+    if (!st->reset_emergency_flag && st->is_move_object) {
+      m_emergencySignal.data = 3;
+      m_emergencySignalOut.write();
+    }
     if ( m_qRef.data.length() != 0 ) { // initialized
       if (is_legged_robot) {
         for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){

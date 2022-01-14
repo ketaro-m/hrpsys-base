@@ -1676,7 +1676,7 @@ void Stabilizer::calcStateForEmergencySignal()
     is_emergency = is_cop_outside && is_seq_interpolating;
     break;
   case OpenHRP::AutoBalancerService::CP:
-    is_emergency = is_cp_outside || is_move_object;
+    is_emergency = is_cp_outside;
     break;
   case OpenHRP::AutoBalancerService::TILT:
     is_emergency = will_fall || is_falling;
