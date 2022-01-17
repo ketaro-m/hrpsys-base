@@ -1127,7 +1127,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
 
     if (!st->reset_emergency_flag && st->is_emergency) {
       hrp::Vector3 sbp = st->ref_foot_origin_rot.transpose() * st->sbp_cog_offset;
-      if (st->act_cp[0] - sbp(0)) {
+      if (st->act_cp[0] + sbp(0) > 0.0) {
         m_emergencySignal.data = 1; // front
       } else {
         m_emergencySignal.data = 2; // back
