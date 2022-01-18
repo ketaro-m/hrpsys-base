@@ -156,7 +156,7 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                     cur_momentum_around_COM = tmp_L - _robot->calcCM().cross(tmp_P);
 //                    _robot->calcTotalMomentumFromJacobian(tmp_P, cur_momentum_around_COM);//calcTotalMomentumFromJacobianは重心ヤコビアンと重心周り角運動量ヤコビアンを用いて重心周りの並進＋回転運動量を出す
                     // few iteration cause vaibration of momentum
-                    if (_max_iteration > 3) {
+                    if (_max_iteration > 2) {
                         cur_momentum_around_COM_filtered = cur_momentum_around_COM;
                     } else {
                         for(int i=0; i<3; i++){

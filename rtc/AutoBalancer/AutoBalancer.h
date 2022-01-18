@@ -352,6 +352,8 @@ class AutoBalancer
   interpolator *angular_momentum_interpolator;
   interpolator *roll_weight_interpolator;
   interpolator *pitch_weight_interpolator;
+  interpolator *roll_momentum_interpolator;
+  interpolator *pitch_momentum_interpolator;
   interpolator *go_vel_interpolator;
   interpolator *cog_constraint_interpolator;
   interpolator *limit_cog_interpolator;

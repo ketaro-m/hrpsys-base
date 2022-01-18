@@ -449,6 +449,10 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     roll_weight_interpolator->setName(std::string(m_profile.instance_name)+" roll_weight_interpolator");
     pitch_weight_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB);
     pitch_weight_interpolator->setName(std::string(m_profile.instance_name)+" pitch_weight_interpolator");
+    roll_momentum_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB);
+    roll_momentum_interpolator->setName(std::string(m_profile.instance_name)+" roll_momentum_interpolator");
+    pitch_momentum_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB);
+    pitch_momentum_interpolator->setName(std::string(m_profile.instance_name)+" pitch_momentum_interpolator");
     go_vel_interpolator = new interpolator(3, m_dt, interpolator::HOFFARBIB);
     go_vel_interpolator->setName(std::string(m_profile.instance_name)+" go_vel_interpolator");
     cog_constraint_interpolator = new interpolator(1, m_dt, interpolator::HOFFARBIB);
@@ -612,6 +616,8 @@ RTC::ReturnCode_t AutoBalancer::onFinalize()
   delete angular_momentum_interpolator;
   delete roll_weight_interpolator;
   delete pitch_weight_interpolator;
+  delete roll_momentum_interpolator;
+  delete pitch_momentum_interpolator;
   delete st->transition_interpolator;
   delete go_vel_interpolator;
   delete cog_constraint_interpolator;
@@ -1883,7 +1889,7 @@ void AutoBalancer::solveFullbodyIK ()
         hrp::Vector3 prev_momentum = fik->cur_momentum_around_COM_filtered;
         m_tmp.data[25] = prev_momentum(0);
         m_tmp.data[26] = prev_momentum(1);
-        fik->q_ref_err_thre = deg2rad(30.0);
+        fik->q_ref_err_thre = deg2rad(40.0);
         if (fik->is_exceed_q_ref_err_thre) {
           was_exceed_q_ref_err_thre = true;
         } else if (!gg->get_use_roll_flywheel() && !gg->get_use_pitch_flywheel()) {
@@ -1892,7 +1898,7 @@ void AutoBalancer::solveFullbodyIK ()
         bool use_roll_flywheel = gg->get_use_roll_flywheel() && !was_exceed_q_ref_err_thre, use_pitch_flywheel = gg->get_use_pitch_flywheel() && !was_exceed_q_ref_err_thre;
         if (use_roll_flywheel) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (use_pitch_flywheel) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
-        double roll_weight, pitch_weight, fly_weight = 1e-3, normal_weight = 1e-7, weight_fly_interpolator_time = 0.02, weight_normal_interpolator_time = 1.5;
+        double roll_weight, pitch_weight, fly_weight = 1e-3, normal_weight = 1e-7, weight_fly_interpolator_time = 0.02, weight_normal_interpolator_time = 0.4;
         if (gg_is_walking && is_natural_walk) normal_weight = 0.0;
         if (gg->is_jumping) fly_weight = 1;
         if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) fly_weight = 1e-6;
@@ -1912,9 +1918,13 @@ void AutoBalancer::solveFullbodyIK ()
             else roll_weight_interpolator->get(&roll_weight, true);
             roll_weight_interpolator->set(&roll_weight);
             roll_weight_interpolator->setGoal(&normal_weight, weight_normal_interpolator_time, true);
+            double zero_momentum = 0.0;
+            roll_momentum_interpolator->set(&prev_momentum(0));
+            roll_momentum_interpolator->setGoal(&zero_momentum, weight_normal_interpolator_time, true);
           }
           if (roll_weight_interpolator->isEmpty()) roll_weight = normal_weight;
           else roll_weight_interpolator->get(&roll_weight, true);
+          if (!roll_momentum_interpolator->isEmpty()) roll_momentum_interpolator->get(&tmp.targetRpy(0), true);
         }
         // pitch
         if (use_pitch_flywheel || gg->is_jumping) {
@@ -1932,9 +1942,13 @@ void AutoBalancer::solveFullbodyIK ()
             else pitch_weight_interpolator->get(&pitch_weight, true);
             pitch_weight_interpolator->set(&pitch_weight);
             pitch_weight_interpolator->setGoal(&normal_weight, weight_normal_interpolator_time, true);
+            double zero_momentum = 0.0;
+            pitch_momentum_interpolator->set(&prev_momentum(1));
+            pitch_momentum_interpolator->setGoal(&zero_momentum, weight_normal_interpolator_time, true);
           }
           if (pitch_weight_interpolator->isEmpty()) pitch_weight = normal_weight;
           else pitch_weight_interpolator->get(&pitch_weight, true);
+          if (!pitch_momentum_interpolator->isEmpty()) pitch_momentum_interpolator->get(&tmp.targetRpy(1), true);
         }
         if (!cog_constraint_interpolator->isEmpty()) {
           cog_constraint_interpolator->get(&cog_z_constraint, true);
@@ -2127,6 +2141,8 @@ void AutoBalancer::startABCparam(const OpenHRP::AutoBalancerService::StrSequence
   angular_momentum_interpolator->clear();
   roll_weight_interpolator->clear();
   pitch_weight_interpolator->clear();
+  roll_momentum_interpolator->clear();
+  pitch_momentum_interpolator->clear();
   limit_cog_interpolator->clear();
   fik->resetCollision();
   hand_fix_interpolator->clear();
