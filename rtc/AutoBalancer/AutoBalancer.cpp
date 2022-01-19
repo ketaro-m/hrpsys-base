@@ -1863,14 +1863,14 @@ void AutoBalancer::solveFullbodyIK ()
     }
     // collision aoidance
     if (use_collision_avoidance) {
-      for (size_t i = 0; i < 2; i++) {
-        if (fik->arm_leg_collision[i].is_collision) {
+      for (size_t i = 0; i < fik->arm_collision.size(); i++) {
+        if (fik->arm_collision[i].is_collision) {
           IKConstraint tmp;
-          double tmp_weight = fik->arm_leg_collision[i].calcWeight(1e-8);
-          tmp.target_link_name = m_robot->joint(fik->arm_leg_collision[i].target_id)->name;
-          tmp.localPos = fik->arm_leg_collision[i].target_localp;
-          tmp.targetPos = m_robot->joint(fik->arm_leg_collision[i].base_id)->p + m_robot->joint(fik->arm_leg_collision[i].base_id)->R * fik->arm_leg_collision[i].base_localp
-            + fik->arm_leg_collision[i].dir * (fik->arm_leg_collision[i].safe_d0 + fik->arm_leg_collision[i].safe_d_offset);
+          double tmp_weight = fik->arm_collision[i].calcWeight(1e-8);
+          tmp.target_link_name = m_robot->joint(fik->arm_collision[i].target_id)->name;
+          tmp.localPos = fik->arm_collision[i].target_localp;
+          tmp.targetPos = m_robot->joint(fik->arm_collision[i].base_id)->p + m_robot->joint(fik->arm_collision[i].base_id)->R * fik->arm_collision[i].base_localp
+            + fik->arm_collision[i].dir * (fik->arm_collision[i].safe_d0 + fik->arm_collision[i].safe_d_offset);
           tmp.constraint_weight << tmp_weight,tmp_weight,tmp_weight,0,0,0;
           ik_tgt_list.push_back(tmp);
         }

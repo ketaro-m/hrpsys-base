@@ -31,8 +31,8 @@ public:
   const T& getIntercept() const { return b; };
   const T& getStart() const { return start; };
   const T& getGoal() const { return goal; };
-  // const T& getPosFromTime(const double _t) const { return a * _t + b; };
-  // const T& getPosFromRatio(const double ratio) const { return a * time * ratio + b; };
+  // T getPosFromTime(const double _t) const { return a * _t + b; };
+  // T getPosFromRatio(const double ratio) const { return a * time * ratio + b; };
   double getTime() const { return time; };
 };
 
