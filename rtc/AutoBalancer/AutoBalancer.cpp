@@ -589,7 +589,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     cog_z_constraint = 1;
     arm_swing_deg = 30.0;
-    ik_max_loop = 1;
+    ik_max_loop = 3;
 
     debug_read_steppable_region = false;
 
