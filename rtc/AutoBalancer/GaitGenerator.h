@@ -786,7 +786,7 @@ namespace rats
       std::vector<bool> act_contact_states;
       bool is_touch_ground, use_act_states, is_single_walking, is_stop_early_foot;
       double rectangle_time_smooth_offset;
-      int touch_ground_count;
+      std::map<leg_type, int> touch_ground_count;
       void calc_current_swing_foot_rot (std::map<leg_type, hrp::Vector3>& tmp_swing_foot_rot, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
       void calc_current_swing_leg_steps (std::vector<step_node>& rets, const double step_height, const double _current_toe_angle, const double _current_heel_angle, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
       double calc_interpolated_toe_heel_angle (const toe_heel_phase start_phase, const toe_heel_phase goal_phase, const double start, const double goal);
@@ -835,6 +835,8 @@ namespace rats
                  std::cerr << "GaitGenerator swing_foot_rot_interpolator " + leg_type_to_leg_type_string(tmp_leg_types[i]) << std::endl;;
              }
          }
+         touch_ground_count.insert(std::pair<leg_type, int>(RLEG, 0));
+         touch_ground_count.insert(std::pair<leg_type, int>(LLEG, 0));
         //if (foot_ratio_interpolator == NULL) foot_ratio_interpolator = new interpolator(1, dt, interpolator::LINEAR);
         if (toe_heel_interpolator == NULL) toe_heel_interpolator = new interpolator(1, dt);
         foot_midcoords_interpolator->setName("GaitGenerator foot_midcoords_interpolator");
@@ -955,6 +957,9 @@ namespace rats
         thp.set_one_step_count(one_step_count);
         footstep_index = 0;
         current_step_height = 0.0;
+        for (std::map<leg_type, int>::iterator it = touch_ground_count.begin(); it != touch_ground_count.end(); it++) {
+          it->second = 0;
+        }
         switch (default_orbit_type) {
         case RECTANGLE:
             rdtg.clear();
