@@ -784,7 +784,7 @@ namespace rats
       bool use_toe_joint, use_toe_heel_auto_set;
       toe_heel_type current_src_toe_heel_type, current_dst_toe_heel_type;
       std::vector<bool> act_contact_states;
-      bool is_touch_ground, use_act_states, is_single_walking, is_stop_early_foot;
+      bool is_touch_ground, use_act_states, is_single_walking, is_stop_early_foot, use_force_sensor;
       double rectangle_time_smooth_offset;
       std::map<leg_type, int> touch_ground_count;
       void calc_current_swing_foot_rot (std::map<leg_type, hrp::Vector3>& tmp_swing_foot_rot, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
@@ -815,7 +815,7 @@ namespace rats
           time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0),
           footstep_index(0), lcg_count(0), swing_rot_count_ratio(0.1), default_orbit_type(CYCLOID),
           rdtg(), rectangle_way_point_offset(0.05, 0.0, 0.0), rectangle_goal_off(hrp::Vector3::Zero()), cdtg(),
-          thp(), use_act_states(true), is_stop_early_foot(false), rectangle_time_smooth_offset(2.0),
+          thp(), use_act_states(true), is_stop_early_foot(false), use_force_sensor(true), rectangle_time_smooth_offset(2.0),
           foot_midcoords_interpolator(NULL), swing_foot_rot_interpolator(), toe_heel_interpolator(NULL),
           toe_pos_offset_x(0.0), heel_pos_offset_x(0.0), toe_angle(0.0), heel_angle(0.0), foot_dif_rot_angle(0.0), toe_heel_dif_angle(0.0), use_toe_joint(false), use_toe_heel_auto_set(false),
           current_src_toe_heel_type(SOLE), current_dst_toe_heel_type(SOLE)
@@ -932,6 +932,7 @@ namespace rats
       };
       void set_use_act_states (const bool _use_act_states) { use_act_states = _use_act_states; };
       void set_is_stop_early_foot (const bool _is_stop_early_foot) { is_stop_early_foot = _is_stop_early_foot; };
+      void set_use_force_sensor (const bool _use_force_sensor) { use_force_sensor = _use_force_sensor; };
       void set_is_early_touch (const bool _is_early_touch, const leg_type _lr) {
         for (int i = 0; i < rdtg.size(); i++) {
           if (swing_leg_src_steps[i].l_r == _lr) rdtg[i].is_early_touch = _is_early_touch;
@@ -1856,6 +1857,7 @@ namespace rats
     void set_footstep_check_delta (const hrp::Vector3& _delta) { footstep_check_delta = _delta; };
     void set_use_act_states() { lcg.set_use_act_states(use_act_states); };
     void set_is_stop_early_foot(const bool _is_stop_early_foot) { lcg.set_is_stop_early_foot(_is_stop_early_foot); };
+    void set_use_force_sensor(const bool _use_force_sensor) { lcg.set_use_force_sensor(_use_force_sensor); };
     void set_is_early_touch(const bool _is_early_touch, const leg_type _lr) { lcg.set_is_early_touch(_is_early_touch, _lr); };
     /* Get overwritable footstep index. For example, if overwritable_footstep_index_offset = 1, overwrite next footstep. If overwritable_footstep_index_offset = 0, overwrite current swinging footstep. */
     size_t get_overwritable_index () const
