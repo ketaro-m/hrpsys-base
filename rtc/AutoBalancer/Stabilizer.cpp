@@ -364,10 +364,10 @@ void Stabilizer::getTargetParameters ()
     //target_ee_p[i] = target->p + target->R * stikp[i].localCOPPos;
     target_ee_p[i] = target->p + target->R * stikp[i].localp;
     target_ee_R[i] = target->R * stikp[i].localR;
-    ref_force[i] = hrp::Vector3(ref_wrenches[i][0], ref_wrenches[i][1], ref_wrenches[i][2]);
-    ref_moment[i] = hrp::Vector3(ref_wrenches[i][3], ref_wrenches[i][4], ref_wrenches[i][5]);
-    stikp[i].ref_force = ref_force[i];
-    stikp[i].ref_moment = ref_moment[i];
+    stikp[i].ref_force = hrp::Vector3(ref_wrenches[i][0], ref_wrenches[i][1], ref_wrenches[i][2]);
+    stikp[i].ref_moment = hrp::Vector3(ref_wrenches[i][3], ref_wrenches[i][4], ref_wrenches[i][5]);
+    ref_force[i] = foot_origin_rot * stikp[i].ref_force;
+    ref_moment[i] = foot_origin_rot * stikp[i].ref_moment;
     ref_total_force += ref_force[i];
     // Force/moment diff control
     ref_total_moment += (target_ee_p[i]-ref_zmp).cross(ref_force[i]);
