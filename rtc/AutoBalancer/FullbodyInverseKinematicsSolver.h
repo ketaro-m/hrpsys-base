@@ -47,9 +47,9 @@ class CollisionData
     hrp::Vector3 base_localp, target_localp, dir;
     double safe_d1, safe_d0, cur_d, safe_d_offset;
     bool is_collision;
-    CollisionData ()
-        : base_id(0), target_id(0), base_localp(hrp::Vector3::Zero()), target_localp(hrp::Vector3::Zero()), dir(hrp::Vector3::Zero()), cur_d(0.0), is_collision(false),
-          safe_d_offset(1e-3), safe_d1(0.21), safe_d0(0.26) {};
+    CollisionData (const int _base_id, const hrp::Vector3& _base_localp, const int _target_id, const hrp::Vector3& _target_local_p, const double _safe_d1 = 0.2, const double _safe_d0 = 0.25)
+        : base_id(_base_id), target_id(_target_id), base_localp(_base_localp), target_localp(_target_local_p), dir(hrp::Vector3::Zero()), cur_d(0.0), is_collision(false),
+          safe_d_offset(1e-3), safe_d1(_safe_d1), safe_d0(_safe_d0) {};
     void reset () {
         is_collision = false;
     }
@@ -77,8 +77,10 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
         std::vector<IIRFilter> am_filters;
     public:
         hrp::dvector dq_weight_all, q_ref, q_ref_max_dq, q_ref_constraint_weight;
+        double q_ref_err_thre;
+        bool is_exceed_q_ref_err_thre;
         hrp::Vector3 cur_momentum_around_COM, cur_momentum_around_COM_filtered, rootlink_rpy_llimit, rootlink_rpy_ulimit;
-        std::vector<CollisionData> arm_leg_collision;
+        std::vector<CollisionData> arm_collision;
         FullbodyInverseKinematicsSolver (hrp::BodyPtr _robot, const std::string& _print_str, const double _dt)
         : SimpleFullbodyInverseKinematicsSolver(_robot,_print_str, _dt),
           WS_DOF(6),
@@ -98,19 +100,49 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
               am_filters[i].setParameterAsBiquad(10, 1/std::sqrt(2), 1.0/m_dt);
               am_filters[i].reset();
             }
-            arm_leg_collision.resize(2);
+            arm_collision.reserve(4);
+            // RHP
             if (_robot->link("R_CROTCH_R") != NULL && _robot->link("R_WRIST_Y") != NULL) {
-                arm_leg_collision[0].base_id = _robot->link("R_CROTCH_R")->jointId;
-                arm_leg_collision[0].base_localp = hrp::Vector3(0.02, 0, -0.2);
-                arm_leg_collision[0].target_id = _robot->link("R_WRIST_Y")->jointId;
-                arm_leg_collision[0].target_localp = hrp::Vector3(-0.01, 0, 0);
+                arm_collision.push_back(CollisionData(_robot->link("R_CROTCH_R")->jointId,
+                                                      hrp::Vector3(0.02, 0, -0.2),
+                                                      _robot->link("R_WRIST_Y")->jointId,
+                                                      hrp::Vector3(0, 0, -0.2)));
             }
             if (_robot->link("L_CROTCH_R") != NULL && _robot->link("L_WRIST_Y") != NULL) {
-                arm_leg_collision[1].base_id = _robot->link("L_CROTCH_R")->jointId;
-                arm_leg_collision[1].base_localp = hrp::Vector3(0.02, 0, -0.2);
-                arm_leg_collision[1].target_id = _robot->link("L_WRIST_Y")->jointId;
-                arm_leg_collision[1].target_localp = hrp::Vector3(-0.01, 0, 0);
+                arm_collision.push_back(CollisionData(_robot->link("L_CROTCH_R")->jointId,
+                                                      hrp::Vector3(0.02, 0, -0.2),
+                                                      _robot->link("L_WRIST_Y")->jointId,
+                                                      hrp::Vector3(0, 0, -0.2)));
             }
+            // JAXON
+            if (_robot->link("RLEG_JOINT2") != NULL && _robot->link("RARM_JOINT6") != NULL) {
+                arm_collision.push_back(CollisionData(_robot->link("RLEG_JOINT2")->jointId,
+                                                      hrp::Vector3(0, 0, -0.2),
+                                                      _robot->link("RARM_JOINT6")->jointId,
+                                                      hrp::Vector3(0, 0, -0.2)));
+            }
+            if (_robot->link("LLEG_JOINT2") != NULL && _robot->link("LARM_JOINT6") != NULL) {
+                arm_collision.push_back(CollisionData(_robot->link("LLEG_JOINT2")->jointId,
+                                                      hrp::Vector3(0, 0, -0.2),
+                                                      _robot->link("LARM_JOINT6")->jointId,
+                                                      hrp::Vector3(0, 0, -0.2)));
+            }
+            if (_robot->link("CHEST_JOINT2") != NULL && _robot->link("RARM_JOINT3") != NULL) {
+                arm_collision.push_back(CollisionData(_robot->link("CHEST_JOINT2")->jointId,
+                                                      hrp::Vector3(0, 0, 0),
+                                                      _robot->link("RARM_JOINT3")->jointId,
+                                                      hrp::Vector3(0, 0, 0),
+                                                      0.32, 0.33));
+            }
+            if (_robot->link("CHEST_JOINT2") != NULL && _robot->link("LARM_JOINT3") != NULL) {
+                arm_collision.push_back(CollisionData(_robot->link("CHEST_JOINT2")->jointId,
+                                                      hrp::Vector3(0, 0, 0),
+                                                      _robot->link("LARM_JOINT3")->jointId,
+                                                      hrp::Vector3(0, 0, 0),
+                                                      0.32, 0.33));
+            }
+            is_exceed_q_ref_err_thre = false;
+            q_ref_err_thre = deg2rad(30.0);
         };
         ~FullbodyInverseKinematicsSolver () {};
         bool checkIKConvergence(const hrp::BodyPtr _robot, const std::vector<IKConstraint>& _ikc_list){
@@ -151,8 +183,13 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                     _robot->calcTotalMomentum(tmp_P, tmp_L);//calcTotalMomentumは漸化的にWorld周りの並進＋回転運動量を出す
                     cur_momentum_around_COM = tmp_L - _robot->calcCM().cross(tmp_P);
 //                    _robot->calcTotalMomentumFromJacobian(tmp_P, cur_momentum_around_COM);//calcTotalMomentumFromJacobianは重心ヤコビアンと重心周り角運動量ヤコビアンを用いて重心周りの並進＋回転運動量を出す
-                    for(int i=0; i<3; i++){
-                        cur_momentum_around_COM_filtered(i) = am_filters[i].passFilter(cur_momentum_around_COM(i));
+                    // few iteration cause vaibration of momentum
+                    if (_max_iteration > 2) {
+                        cur_momentum_around_COM_filtered = cur_momentum_around_COM;
+                    } else {
+                        for(int i=0; i<3; i++){
+                            cur_momentum_around_COM_filtered(i) = am_filters[i].passFilter(cur_momentum_around_COM(i));
+                        }
                     }
                     loop++;
                     if(checkIKConvergence(_robot, _ikc_list)){ break; }
@@ -208,15 +245,18 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                 }
 
                 // set desired joint pose constraint into Jacobian
+                double q_err = 0.0;
                 for(int qid=0; qid<ALL_DOF; qid++){
                     if(q_ref_constraint_weight(qid) > 0.0){
                         J_all.row(cur_cid_all)(qid) = 1;
                         err_all(cur_cid_all) = (qid < J_DOF) ? (q_ref(qid) - _robot->joint(qid)->q) : (q_ref(qid) - hrp::rpyFromRot(_robot->rootLink()->R)(qid-J_DOF));
+                        q_err += err_all(cur_cid_all) * err_all(cur_cid_all);
                         LIMIT_MINMAX(err_all(cur_cid_all), -q_ref_max_dq(qid), q_ref_max_dq(qid));
                         constraint_weight_all(cur_cid_all) = q_ref_constraint_weight(qid);
                         cur_cid_all++;
                     }
                 }
+                is_exceed_q_ref_err_thre = (sqrt(q_err) > q_ref_err_thre);
 
                 // joint limit avoidance (copy from JointPathEx)
                 hrp::dvector dq_weight_all_jlim = hrp::dvector::Ones(ALL_DOF);
@@ -305,8 +345,8 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                 _robot->calcForwardKinematics();
 
                 // Collision check
-                for (size_t i = 0; i < 2; i++) {
-                    arm_leg_collision[i].checkCollision(_robot);
+                for (size_t i = 0; i < arm_collision.size(); i++) {
+                    arm_collision[i].checkCollision(_robot);
                 }
             #else
                 std::cerr<<"solveFullbodyIKOnce() needs OPENHRP_PACKAGE_VERSION_320 !!!"<<std::endl;
@@ -319,8 +359,8 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
             m_robot->calcForwardKinematics();
         };
         void resetCollision () {
-            for(size_t i = 0; i < arm_leg_collision.size(); i++) {
-                arm_leg_collision[i].reset();
+            for(size_t i = 0; i < arm_collision.size(); i++) {
+                arm_collision[i].reset();
             }
         }
 

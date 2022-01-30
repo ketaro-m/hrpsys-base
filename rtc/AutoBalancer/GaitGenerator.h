@@ -784,9 +784,9 @@ namespace rats
       bool use_toe_joint, use_toe_heel_auto_set;
       toe_heel_type current_src_toe_heel_type, current_dst_toe_heel_type;
       std::vector<bool> act_contact_states;
-      bool is_touch_ground, use_act_states, is_single_walking, is_stop_early_foot;
+      bool is_touch_ground, use_act_states, is_single_walking, is_stop_early_foot, use_force_sensor;
       double rectangle_time_smooth_offset;
-      int touch_ground_count;
+      std::map<leg_type, int> touch_ground_count;
       void calc_current_swing_foot_rot (std::map<leg_type, hrp::Vector3>& tmp_swing_foot_rot, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
       void calc_current_swing_leg_steps (std::vector<step_node>& rets, const double step_height, const double _current_toe_angle, const double _current_heel_angle, const double _default_double_support_ratio_before, const double _default_double_support_ratio_after);
       double calc_interpolated_toe_heel_angle (const toe_heel_phase start_phase, const toe_heel_phase goal_phase, const double start, const double goal);
@@ -815,7 +815,7 @@ namespace rats
           time_offset(0.35), final_distance_weight(1.0), time_offset_xy2z(0),
           footstep_index(0), lcg_count(0), swing_rot_count_ratio(0.1), default_orbit_type(CYCLOID),
           rdtg(), rectangle_way_point_offset(0.05, 0.0, 0.0), rectangle_goal_off(hrp::Vector3::Zero()), cdtg(),
-          thp(), use_act_states(true), is_stop_early_foot(false), rectangle_time_smooth_offset(2.0),
+          thp(), use_act_states(true), is_stop_early_foot(false), use_force_sensor(true), rectangle_time_smooth_offset(2.0),
           foot_midcoords_interpolator(NULL), swing_foot_rot_interpolator(), toe_heel_interpolator(NULL),
           toe_pos_offset_x(0.0), heel_pos_offset_x(0.0), toe_angle(0.0), heel_angle(0.0), foot_dif_rot_angle(0.0), toe_heel_dif_angle(0.0), use_toe_joint(false), use_toe_heel_auto_set(false),
           current_src_toe_heel_type(SOLE), current_dst_toe_heel_type(SOLE)
@@ -835,6 +835,8 @@ namespace rats
                  std::cerr << "GaitGenerator swing_foot_rot_interpolator " + leg_type_to_leg_type_string(tmp_leg_types[i]) << std::endl;;
              }
          }
+         touch_ground_count.insert(std::pair<leg_type, int>(RLEG, 0));
+         touch_ground_count.insert(std::pair<leg_type, int>(LLEG, 0));
         //if (foot_ratio_interpolator == NULL) foot_ratio_interpolator = new interpolator(1, dt, interpolator::LINEAR);
         if (toe_heel_interpolator == NULL) toe_heel_interpolator = new interpolator(1, dt);
         foot_midcoords_interpolator->setName("GaitGenerator foot_midcoords_interpolator");
@@ -930,6 +932,7 @@ namespace rats
       };
       void set_use_act_states (const bool _use_act_states) { use_act_states = _use_act_states; };
       void set_is_stop_early_foot (const bool _is_stop_early_foot) { is_stop_early_foot = _is_stop_early_foot; };
+      void set_use_force_sensor (const bool _use_force_sensor) { use_force_sensor = _use_force_sensor; };
       void set_is_early_touch (const bool _is_early_touch, const leg_type _lr) {
         for (int i = 0; i < rdtg.size(); i++) {
           if (swing_leg_src_steps[i].l_r == _lr) rdtg[i].is_early_touch = _is_early_touch;
@@ -955,6 +958,9 @@ namespace rats
         thp.set_one_step_count(one_step_count);
         footstep_index = 0;
         current_step_height = 0.0;
+        for (std::map<leg_type, int>::iterator it = touch_ground_count.begin(); it != touch_ground_count.end(); it++) {
+          it->second = 0;
+        }
         switch (default_orbit_type) {
         case RECTANGLE:
             rdtg.clear();
@@ -1390,7 +1396,7 @@ namespace rats
     {
       return (a(0) - o(0)) * (b(1) - o(1)) - (a(1) - o(1)) * (b(0) - o(0));
     };
-    projected_point_region calcProjectedPoint(Eigen::Vector2d& ret, const Eigen::Vector2d& target, const Eigen::Vector2d& a, const Eigen::Vector2d& b)
+    inline projected_point_region calcProjectedPoint(Eigen::Vector2d& ret, const Eigen::Vector2d& target, const Eigen::Vector2d& a, const Eigen::Vector2d& b)
     {
       Eigen::Vector2d v1 = target - b;
       Eigen::Vector2d v2 = a - b;
@@ -1413,7 +1419,7 @@ namespace rats
       }
     };
     // Assume that the oder of ch is CCW or CW
-    bool is_inside_polygon (Eigen::Vector2d& p, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
+    inline bool is_inside_polygon (Eigen::Vector2d& p, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
     {
       bool is_inside = false;
       for (int i = 0; i < ch.size(); i++) {
@@ -1425,19 +1431,19 @@ namespace rats
       }
       return is_inside;
     }
-    bool is_inside_convex_hull (Eigen::Vector2d& p, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
+    inline bool is_inside_convex_hull (Eigen::Vector2d& p, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
     {
       double tmp;
       hrp::Vector3 tmp_pos;
       return is_inside_convex_hull(p, tmp, tmp_pos, convex_hull, offset, truncate_p);
     };
-    bool is_inside_convex_hull (Eigen::Vector2d& p, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
+    inline bool is_inside_convex_hull (Eigen::Vector2d& p, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false)
     {
       double tmp;
       hrp::Vector3 tmp_pos;
       return is_inside_convex_hull(p, tmp, tmp_pos, ch, offset, truncate_p);
     };
-    bool is_inside_convex_hull (Eigen::Vector2d& p, double& t, hrp::Vector3& short_of_footstep, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false, const bool& change_time = false, const double& r = 0.0, const double& omega = 0.0, const hrp::Vector3& cur_cp = hrp::Vector3::Zero(), const hrp::Vector3& prev_fs_pos = hrp::Vector3::Zero(), const hrp::Matrix33& prev_fs_rot = hrp::Matrix33::Ones(), const leg_type cur_sup = RLEG)
+    inline bool is_inside_convex_hull (Eigen::Vector2d& p, double& t, hrp::Vector3& short_of_footstep, const std::vector<Eigen::Vector2d>& ch, const hrp::Vector3& offset = hrp::Vector3::Zero(), const bool& truncate_p = false, const bool& change_time = false, const double& r = 0.0, const double& omega = 0.0, const hrp::Vector3& cur_cp = hrp::Vector3::Zero(), const hrp::Vector3& prev_fs_pos = hrp::Vector3::Zero(), const hrp::Matrix33& prev_fs_rot = hrp::Matrix33::Ones(), const leg_type cur_sup = RLEG)
     {
       // set any inner point(ip) and binary search two vertices(ch[v_a], ch[v_b]) between which p is.
       p -= offset.head(2);
@@ -1462,11 +1468,13 @@ namespace rats
         if (truncate_p) {
           if (!calc_closest_boundary_point(p, ch, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
         } else if (change_time) { // TODO: should consider dcm_off/zmp_offset
-          // prev foot frame (do not consider prev foot rot)
-          Eigen::Vector2d pa = ch[v_a] - prev_fs_pos.head(2), pb = ch[v_b] - prev_fs_pos.head(2), cp = cur_cp.head(2) - prev_fs_pos.head(2);
+          // prev foot frame
+          Eigen::Vector2d pa = (prev_fs_rot.transpose() * (hrp::Vector3(ch[v_a](0), ch[v_a](1), 0) - prev_fs_pos)).head(2),
+            pb = (prev_fs_rot.transpose() * (hrp::Vector3(ch[v_b](0), ch[v_b](1), 0) - prev_fs_pos)).head(2),
+            cp = (prev_fs_rot.transpose() * (cur_cp - prev_fs_pos)).head(2);
+          p = (prev_fs_rot.transpose() * (hrp::Vector3(p(0), p(1), 0) - prev_fs_pos)).head(2);
           double tmp = fabs(pb(0) - pa(0)) < 1e-3 ? 1e-3 : (pb(0) - pa(0)); // limit 1[mm]
           double a = (pb(1) - pa(1)) / tmp, b = pa(1) - pa(0) * (pb(1) - pa(1)) / tmp;
-          p -= prev_fs_pos.head(2);
           double ar = (a*a+1)*r*r;
           double A = ar - std::pow(a*cp(0)-cp(1),2.0);
           double B = -2 * (a*b*cp(0)-b*cp(1)+ar);
@@ -1477,7 +1485,7 @@ namespace rats
           if (D >= 0) {
             Eigen::Vector2d tmp_pos = ewt * cp;
             // preprev foot frame
-            tmp_pos += prev_fs_pos.head(2);
+            tmp_pos = (prev_fs_pos + prev_fs_rot * hrp::Vector3(tmp_pos(0), tmp_pos(1), 0)).head(2);
             if (!calc_closest_boundary_point(tmp_pos, ch, v_a, v_b)) std::cerr << "Cannot calculate closest boundary point on the convex hull" << std::endl;
             p = tmp_pos;
           } else {
@@ -1485,52 +1493,93 @@ namespace rats
             if (D >= 0) {
               double tmp_t = std::log((-B + std::sqrt(D)) / (2*A)) / omega;
               if (isnan(tmp_t)) tmp_t = std::log((-B - std::sqrt(D)) / (2*A)) / omega;
-              if (isfinite(tmp_t)) {
-                p(0) = ((cp(0) + a * cp(1)) * std::exp(omega * tmp_t) - a * b) / (a*a + 1);
+              if (isfinite(tmp_t)) { // limit projected point onto nearest edge by rectangular capture region(RCR)
+                // projecte point onto nearest edge
+                p(0) = (a * (p(1) - b) + p(0)) / (a*a + 1);
                 p(1) = a * p(0) + b;
+
+                double end_cp_front = std::exp(omega * tmp_t) * cp(0) - (std::exp(omega * tmp_t) - 1) * safe_leg_margin[0];
+                double end_cp_back = std::exp(omega * tmp_t) * cp(0) + (std::exp(omega * tmp_t) - 1) * safe_leg_margin[1];
+                double end_cp_outside = std::exp(omega * tmp_t) * cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * tmp_t) - 1) * safe_leg_margin[2];
+                double end_cp_inside = std::exp(omega * tmp_t) * cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * tmp_t) - 1) * safe_leg_margin[3];
+                // < C++11
+                // std::vector<Eigen::Vector2d> rcr = {Eigen::Vector2d(end_cp_front, end_cp_outside),
+                //                                     Eigen::Vector2d(end_cp_back, end_cp_outside),
+                //                                     Eigen::Vector2d(end_cp_back, end_cp_inside),
+                //                                     Eigen::Vector2d(end_cp_front, end_cp_inside)};
+                // C++98
+                std::vector<Eigen::Vector2d> rcr(4);
+                rcr[0] = Eigen::Vector2d(end_cp_front, end_cp_outside);
+                rcr[1] = Eigen::Vector2d(end_cp_back, end_cp_outside);
+                rcr[2] = Eigen::Vector2d(end_cp_back, end_cp_inside);
+                rcr[3] = Eigen::Vector2d(end_cp_front, end_cp_inside);
+                std::vector<Eigen::Vector2d> s_cand(4); // intersection
+                for (size_t i = 0; i < rcr.size(); i++) {
+                  double tmp = fabs(pb(0) - pa(0)) < 1e-3 ? 1e-3 : (pb(0) - pa(0)); // limit 1[mm]
+                  double rcr_a = (rcr[(i+1)%4](1) - rcr[i](1)) / tmp, rcr_b = rcr[i](1) - rcr[i](0) * (rcr[(i+1)%4](1) - rcr[i](1)) / tmp;
+                  tmp = fabs(a - rcr_a) < 1e-3 ? 1e-3 : (a - rcr_a); // limit 1[mm]
+                  s_cand[i](0) = (rcr_b - b) / tmp;
+                  s_cand[i](1) = (a * rcr_b - rcr_a * b) / tmp;
+                }
+                std::vector<Eigen::Vector2d> s;
+                s.reserve(2);
+                // vertical check
+                if (s_cand[0](0) < end_cp_front && s_cand[0](0) > end_cp_back) s.push_back(s_cand[0]);
+                if (s_cand[2](0) < end_cp_front && s_cand[2](0) > end_cp_back) s.push_back(s_cand[2]);
+                // horizontal check
+                if ((s_cand[1](1) < end_cp_outside && s_cand[1](1) > end_cp_inside) || (s_cand[1](1) < end_cp_outside && s_cand[1](1) > end_cp_inside)) s.push_back(s_cand[1]);
+                if ((s_cand[3](1) < end_cp_outside && s_cand[3](1) > end_cp_inside) || (s_cand[3](1) < end_cp_outside && s_cand[3](1) > end_cp_inside)) s.push_back(s_cand[3]);
+                // project to line segment
+                if (s.size() == 2) {
+                  for (size_t i = 0; i < 2; i++) {
+                    if (p(i) > std::max(s[0](i), s[1](i)))      p(i) = std::max(s[0](i), s[1](i));
+                    else if (p(i) < std::min(s[0](i), s[1](i))) p(i) = std::min(s[0](i), s[1](i));
+                  }
+                } else {
+                  std::cerr << "Cannot calculate projected point" << std::endl;
+                }
               }
             }
             // preprev foot frame
-            p += prev_fs_pos.head(2);
+            p = (prev_fs_pos + prev_fs_rot * hrp::Vector3(p(0), p(1), 0)).head(2);
           }
           // project to line segment
           for (size_t i = 0; i < 2; i++) {
             if (p(i) > std::max(ch[v_a](i), ch[v_b](i)))      p(i) = std::max(ch[v_a](i), ch[v_b](i));
             else if (p(i) < std::min(ch[v_a](i), ch[v_b](i))) p(i) = std::min(ch[v_a](i), ch[v_b](i));
           }
-          // prev foot frame (consider prev foot rot)
+          // prev foot frame
           hrp::Vector3 end_cp = prev_fs_rot.transpose() * (hrp::Vector3(p(0), p(1), 0) - prev_fs_pos);
-          hrp::Vector3 rel_cp = prev_fs_rot.transpose() * (cur_cp - prev_fs_pos);
-          double end_cp_front = std::exp(omega * t) * rel_cp(0) - (std::exp(omega * t) - 1) * safe_leg_margin[0];
-          double end_cp_back = std::exp(omega * t) * rel_cp(0) + (std::exp(omega * t) - 1) * safe_leg_margin[1];
-          double end_cp_outside = std::exp(omega * t) * rel_cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * t) - 1) * safe_leg_margin[2];
-          double end_cp_inside = std::exp(omega * t) * rel_cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * t) - 1) * safe_leg_margin[3];
+          double end_cp_front = std::exp(omega * t) * cp(0) - (std::exp(omega * t) - 1) * safe_leg_margin[0];
+          double end_cp_back = std::exp(omega * t) * cp(0) + (std::exp(omega * t) - 1) * safe_leg_margin[1];
+          double end_cp_outside = std::exp(omega * t) * cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * t) - 1) * safe_leg_margin[2];
+          double end_cp_inside = std::exp(omega * t) * cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * t) - 1) * safe_leg_margin[3];
           bool is_change_time = false;
           double xz_max, l_max;
           // calc remain_time
           if (end_cp(0) < end_cp_front) {
             xz_max = safe_leg_margin[0];
             l_max = end_cp(0);
-            double tmp_t = std::log((l_max - xz_max) / (rel_cp(0) - xz_max)) / omega;
+            double tmp_t = std::log((l_max - xz_max) / (cp(0) - xz_max)) / omega;
             if (std::fabs(tmp_t - t) > tmp_dt) tmp_dt = tmp_t - t;
             is_change_time = true;
           } else if (end_cp(0) > end_cp_back) {
             xz_max = -1 * safe_leg_margin[1];
             l_max = end_cp(0);
-            double tmp_t = std::log((l_max - xz_max) / (rel_cp(0) - xz_max)) / omega;
+            double tmp_t = std::log((l_max - xz_max) / (cp(0) - xz_max)) / omega;
             if (std::fabs(tmp_t - t) > tmp_dt) tmp_dt = tmp_t - t;
             is_change_time = true;
           }
           if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) < (cur_sup == RLEG ? -1 : 1) * end_cp_outside) {
             xz_max = (cur_sup == RLEG ? -1 : 1) * safe_leg_margin[2];
             l_max = end_cp(1);
-            double tmp_t = std::log((l_max - xz_max) / (rel_cp(1) - xz_max)) / omega;
+            double tmp_t = std::log((l_max - xz_max) / (cp(1) - xz_max)) / omega;
             if (std::fabs(tmp_t - t) > tmp_dt) tmp_dt = tmp_t - t;
             is_change_time = true;
           } else if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) > (cur_sup == RLEG ? -1 : 1) * end_cp_inside) {
             xz_max = (cur_sup == RLEG ? 1 : -1) * safe_leg_margin[3];
             l_max = end_cp(1);
-            double tmp_t = std::log((l_max - xz_max) / (rel_cp(1) - xz_max)) / omega;
+            double tmp_t = std::log((l_max - xz_max) / (cp(1) - xz_max)) / omega;
             if (std::fabs(tmp_t - t) > tmp_dt) tmp_dt = tmp_t - t;
             is_change_time = true;
           }
@@ -1540,23 +1589,23 @@ namespace rats
 
             // calc target pos according t
             hrp::Vector3 target_p = end_cp;
-            end_cp_front = std::exp(omega * t) * rel_cp(0) - (std::exp(omega * t) - 1) * safe_leg_margin[0];
-            end_cp_back = std::exp(omega * t) * rel_cp(0) + (std::exp(omega * t) - 1) * safe_leg_margin[1];
-            end_cp_outside = std::exp(omega * t) * rel_cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * t) - 1) * safe_leg_margin[2];
-            end_cp_inside = std::exp(omega * t) * rel_cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * t) - 1) * safe_leg_margin[3];
+            end_cp_front = std::exp(omega * t) * cp(0) - (std::exp(omega * t) - 1) * safe_leg_margin[0];
+            end_cp_back = std::exp(omega * t) * cp(0) + (std::exp(omega * t) - 1) * safe_leg_margin[1];
+            end_cp_outside = std::exp(omega * t) * cp(1) - (cur_sup == RLEG ? -1 : 1) * (std::exp(omega * t) - 1) * safe_leg_margin[2];
+            end_cp_inside = std::exp(omega * t) * cp(1) - (cur_sup == RLEG ? 1 : -1) * (std::exp(omega * t) - 1) * safe_leg_margin[3];
             if (end_cp(0) < end_cp_front) {
               xz_max = safe_leg_margin[0];
-              target_p(0) = std::exp(omega * t) * rel_cp(0) + (1 - std::exp(omega * t)) * xz_max;
+              target_p(0) = std::exp(omega * t) * cp(0) + (1 - std::exp(omega * t)) * xz_max;
             } else if (end_cp(0) > end_cp_back) {
               xz_max = -1 * safe_leg_margin[1];
-              target_p(0) = std::exp(omega * t) * rel_cp(0) + (1 - std::exp(omega * t)) * xz_max;
+              target_p(0) = std::exp(omega * t) * cp(0) + (1 - std::exp(omega * t)) * xz_max;
             }
             if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) < (cur_sup == RLEG ? -1 : 1) * end_cp_outside) {
               xz_max = (cur_sup == RLEG ? -1 : 1) * safe_leg_margin[2];
-              target_p(1) = std::exp(omega * t) * rel_cp(1) + (1 - std::exp(omega * t)) * xz_max;
+              target_p(1) = std::exp(omega * t) * cp(1) + (1 - std::exp(omega * t)) * xz_max;
             } else if ((cur_sup == RLEG ? -1 : 1) * end_cp(1) > (cur_sup == RLEG ? -1 : 1) * end_cp_inside) {
               xz_max = (cur_sup == RLEG ? 1 : -1) * safe_leg_margin[3];
-              target_p(1) = std::exp(omega * t) * rel_cp(1) + (1 - std::exp(omega * t)) * xz_max;
+              target_p(1) = std::exp(omega * t) * cp(1) + (1 - std::exp(omega * t)) * xz_max;
             }
             // preprev foot frame
             target_p = prev_fs_pos + prev_fs_rot * target_p;
@@ -1808,6 +1857,7 @@ namespace rats
     void set_footstep_check_delta (const hrp::Vector3& _delta) { footstep_check_delta = _delta; };
     void set_use_act_states() { lcg.set_use_act_states(use_act_states); };
     void set_is_stop_early_foot(const bool _is_stop_early_foot) { lcg.set_is_stop_early_foot(_is_stop_early_foot); };
+    void set_use_force_sensor(const bool _use_force_sensor) { lcg.set_use_force_sensor(_use_force_sensor); };
     void set_is_early_touch(const bool _is_early_touch, const leg_type _lr) { lcg.set_is_early_touch(_is_early_touch, _lr); };
     /* Get overwritable footstep index. For example, if overwritable_footstep_index_offset = 1, overwrite next footstep. If overwritable_footstep_index_offset = 0, overwrite current swinging footstep. */
     size_t get_overwritable_index () const

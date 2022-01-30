@@ -281,14 +281,14 @@ namespace rats
          it1++, it2++, it3++) {
       coordinates ret;
       ret.rot = it1->worldcoords.rot * hrp::rotFromRpy(tmp_swing_foot_rot[it2->l_r]);
-      if (it1->l_r == RLEG && act_contact_states[1] ||
-          it1->l_r == LLEG && act_contact_states[0]) {
-        touch_ground_count++;
-      } else {
-        is_touch_ground = false;
-        touch_ground_count = 0;
+      {
+        // is_touch_ground = false;
+        // touch_ground_count[it1->l_r == RLEG ? LLEG : RLEG] = 0;
+        // if (act_contact_states[it1->l_r == RLEG ? 1 : 0]) touch_ground_count[it1->l_r]++;
+        // int thre_count = static_cast<int>(one_step_count * _default_double_support_ratio_before); // quarter of double support phase
+        // if (touch_ground_count[it1->l_r] > thre_count || !use_act_states) is_touch_ground = true;
+        is_touch_ground = true; // more stable without judging ground_touch
       }
-      if (touch_ground_count > static_cast<int>((_default_double_support_ratio_before+_default_double_support_ratio_after)/dt) || !use_act_states) is_touch_ground = true;
       switch (default_orbit_type) {
       case SHUFFLING:
         ret.pos = swing_ratio*it1->worldcoords.pos + (1-swing_ratio)*it2->worldcoords.pos;
@@ -444,7 +444,7 @@ namespace rats
     rdtg[swing_trajectory_generator_idx].set_rectangle_trajectory_way_point_offset(rectangle_way_point_offset);
     rdtg[swing_trajectory_generator_idx].is_touch_ground = is_touch_ground;
     rdtg[swing_trajectory_generator_idx].is_single_walking = is_single_walking;
-    if (use_act_states && is_stop_early_foot) rdtg[swing_trajectory_generator_idx].goal_off = rectangle_goal_off;
+    if (use_act_states && is_stop_early_foot && use_force_sensor) rdtg[swing_trajectory_generator_idx].goal_off = rectangle_goal_off;
     rdtg[swing_trajectory_generator_idx].time_smooth_offset = rectangle_time_smooth_offset;
     rdtg[swing_trajectory_generator_idx].get_trajectory_point(ret.pos, hrp::Vector3(start.pos), hrp::Vector3(goal.pos), height, hrp::Vector3(current_coords.pos));
   };

@@ -464,6 +464,7 @@ module OpenHRP
       /// ref-force to sbp update gain [0~1]
       double sbp_ref_force_gain;
       double sbp_ref_moment_gain;
+      long ik_max_loop;
     };
 
     /**
