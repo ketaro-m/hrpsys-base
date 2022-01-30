@@ -18,7 +18,7 @@
 #include "hrpsys/util/Hrpsys.h"
 #include <boost/assign.hpp>
 
-#define MAX_TRANSITION_COUNT (static_cast<int>(2/m_dt))
+#define MAX_TRANSITION_COUNT (static_cast<int>(1/m_dt))
 typedef coil::Guard<coil::Mutex> Guard;
 
 // Module specification
