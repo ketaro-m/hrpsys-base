@@ -795,12 +795,12 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     hrp::Vector3 selected_ff = S_weight * df_ff;
     hrp::Vector3 d_selected_act = S_weight * d_df_act;
     hrp::Vector3 d_selected_ff = S_weight * d_df_ff;
-    // not update ref-force into act-force when act-force is negative in motion_dir
-    for (int i = 0; i < 3; i += 1) {
-      if ((S_dir * df_act)[i] < 0.0 && (S_dir * ref_force[arm_idx])[i] < 0.0) {
-          selected_act[i] = d_selected_act[i] = 0;
-      }
-    }
+    // // not update ref-force into act-force when act-force is negative in motion_dir
+    // for (int i = 0; i < 3; i += 1) {
+    //   if ((S_dir * df_act)[i] < 0.0 && (S_dir * ref_force[arm_idx])[i] < 0.0) {
+    //       selected_act[i] = d_selected_act[i] = 0;
+    //   }
+    // }
     hrp::Vector3 in_f = ee_rot * internal_force;
     if (!m_RFUParam[arm].is_hold_value) {
         ref_force[arm_idx] = S_bool * ref_force[arm_idx] + in_f +
@@ -849,12 +849,12 @@ void ReferenceForceUpdater::updateRefForces (const std::string& arm)
     hrp::Vector3 sbp_selected_ff = S_weight * sbp_df_ff;
     hrp::Vector3 sbp_d_selected_act = S_weight * sbp_d_df_act;
     hrp::Vector3 sbp_d_selected_ff = S_weight * sbp_d_df_ff;
-    // not update ref-force into act-force when act-force is negative in motion_dir
-    for (int i = 0; i < 3; i += 1) {
-      if ((S_dir * sbp_df_act)[i] < 0.0 && (S_dir * sbp_ref_force[arm_idx])[i] < 0.0) {
-          sbp_selected_act[i] = sbp_d_selected_act[i] = 0;
-      }
-    }
+    // // not update ref-force into act-force when act-force is negative in motion_dir
+    // for (int i = 0; i < 3; i += 1) {
+    //   if ((S_dir * sbp_df_act)[i] < 0.0 && (S_dir * sbp_ref_force[arm_idx])[i] < 0.0) {
+    //       sbp_selected_act[i] = sbp_d_selected_act[i] = 0;
+    //   }
+    // }
     // hrp::Vector3 in_f = ee_rot * internal_force;
     if (!m_RFUParam[arm].is_hold_value) {
         sbp_ref_force[arm_idx] = S_bool * sbp_ref_force[arm_idx] + in_f +
