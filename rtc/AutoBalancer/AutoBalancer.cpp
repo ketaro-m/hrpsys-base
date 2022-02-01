@@ -1233,6 +1233,7 @@ void AutoBalancer::setABCData2ST()
       st->ref_wrenches[j][i] = m_force[j].data[i];
     }
   }
+  st->arm_total_ref_force_z = arm_total_ref_force_z;
   for (size_t i = 0; i < st->limbCOPOffset.size(); i++) {
     st->limbCOPOffset[i](0) = m_limbCOPOffset[i].data.x;
     st->limbCOPOffset[i](1) = m_limbCOPOffset[i].data.y;
@@ -1380,6 +1381,7 @@ void AutoBalancer::getOutputParametersForWalking ()
 {
     int contact_cnt = 0;
     hrp::Vector3 total_force = st->ref_foot_origin_rot.transpose() * (m_robot->totalMass() * gg->get_cog_acc());
+    arm_total_ref_force_z = 0.0;
     for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
         size_t idx = contact_states_index_map[it->first];
         // Check whether "it->first" ee_name is included in leg_names. leg_names is equivalent to "swing" + "support" in gg.
@@ -1416,6 +1418,7 @@ void AutoBalancer::getOutputParametersForWalking ()
             // Set toe heel ratio which can be used force moment distribution
             m_toeheelRatio.data[idx] = rats::no_using_toe_heel_ratio;
             total_force -= hrp::Vector3(m_force[idx].data[0], m_force[idx].data[1], m_force[idx].data[2]);
+            arm_total_ref_force_z += m_force[idx].data[2];
         }
     }
     for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
@@ -1433,6 +1436,7 @@ void AutoBalancer::getOutputParametersForABC ()
 {
     int contact_cnt = 0;
     hrp::Vector3 total_force = st->ref_foot_origin_rot.transpose() * (m_robot->totalMass() * hrp::Vector3(0, 0, gg->get_gravitational_acceleration()));
+    arm_total_ref_force_z = 0.0;
     // double support by default
     for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
         size_t idx = contact_states_index_map[it->first];
@@ -1451,6 +1455,7 @@ void AutoBalancer::getOutputParametersForABC ()
         } else {
             m_contactStates.data[idx] = false;
             total_force -= hrp::Vector3(m_force[idx].data[0], m_force[idx].data[1], m_force[idx].data[2]);
+            arm_total_ref_force_z += m_force[idx].data[2];
         }
         // controlSwingSupportTime is not used while double support period, 1.0 is neglected
         m_controlSwingSupportTime.data[idx] = 1.0;
@@ -1476,6 +1481,7 @@ void AutoBalancer::getOutputParametersForJumping ()
 {
   int contact_cnt = 0;
   hrp::Vector3 total_force = st->ref_foot_origin_rot.transpose() * (m_robot->totalMass() * gg->get_cog_acc());
+  arm_total_ref_force_z = 0.0;
   for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
     size_t idx = contact_states_index_map[it->first];
     // if (gg->is_jumping_phase()) m_contactStates.data[idx] = false; // TODO: fix bug on st
@@ -1485,6 +1491,7 @@ void AutoBalancer::getOutputParametersForJumping ()
       gg->get_jump_ee_coords_from_ee_name(it->second.target_p0, it->second.target_r0, it->first);
     } else {
       total_force -= hrp::Vector3(m_force[idx].data[0], m_force[idx].data[1], m_force[idx].data[2]);
+      arm_total_ref_force_z += m_force[idx].data[2];
     }
   }
   for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {

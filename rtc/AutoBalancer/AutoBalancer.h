@@ -406,6 +406,7 @@ class AutoBalancer
   rats::coordinates initial_fix_coords;
   bool was_exceed_q_ref_err_thre;
   int ik_max_loop;
+  double arm_total_ref_force_z;
 };
 
 

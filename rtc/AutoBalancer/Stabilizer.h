@@ -152,6 +152,7 @@ public:
   std::vector<bool> is_foot_touch;
   std::vector<hrp::Vector3> touchdown_d_pos, touchdown_d_rpy;
   bool use_force_sensor;
+  double arm_total_ref_force_z;
   // joint servo control
   OpenHRP::RobotHardwareService::JointControlMode joint_control_mode;
   RTC::CorbaConsumer<OpenHRP::RobotHardwareService> m_robotHardwareService0;
