@@ -323,6 +323,7 @@ class AutoBalancer
   void stopFootForEarlyTouchDown();
   void calcTouchoffRemainTime();
   void limbStretchAvoidanceControl();
+  void calcTotalExternalForceZ();
 
   // for gg
   typedef boost::shared_ptr<rats::gait_generator> ggPtr;
@@ -406,6 +407,7 @@ class AutoBalancer
   rats::coordinates initial_fix_coords;
   bool was_exceed_q_ref_err_thre;
   int ik_max_loop;
+  double total_external_force_z;
 };
 
 

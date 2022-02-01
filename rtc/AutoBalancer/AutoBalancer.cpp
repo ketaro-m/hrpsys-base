@@ -848,6 +848,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       setActData2ST();
       st->getActualParameters();
       gg->set_act_contact_states(st->act_contact_states);
+      calcTotalExternalForceZ();
       // if (!go_vel_interpolator->isEmpty()) {
       //   std::vector<double> tmp_v(3);
       //   go_vel_interpolator->get(tmp_v.data(), true);
@@ -2130,6 +2131,19 @@ void AutoBalancer::solveSimpleFullbodyIK ()
     dif_cog = m_robot->calcCM() - ref_cog - dif_ref_act_cog;
     fik->solveSimpleFullbodyIKLoop(dif_cog, transition_interpolator->isEmpty());
   }
+}
+
+void AutoBalancer::calcTotalExternalForceZ ()
+{
+  total_external_force_z = 0.0;
+  for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
+    size_t idx = contact_states_index_map[it->first];
+    if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) { // Not included in leg_names
+      total_external_force_z += m_ref_force[idx].data[2];
+    }
+  }
+  gg->total_external_force_z = total_external_force_z;
+  st->total_external_force_z = total_external_force_z;
 }
 
 void AutoBalancer::limit_cog (hrp::Vector3& cog)
@@ -4019,14 +4033,14 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
                 size_t idx = contact_states_index_map[it->first];
                 // Force applied point is assumed as end effector
                 hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
-                nume(j) += ( (fpos(2) - ref_com_height) * sbp_ref_forces[idx](j) - (fpos(j) - tmpcog(j)) * sbp_ref_forces[idx](2) );
-                nume(j) += (j==0 ? sbp_ref_moments[idx](1):-sbp_ref_moments[idx](0));
-                denom(j) -= sbp_ref_forces[idx](2);
+                nume(j) += ( (fpos(2) - ref_com_height) * ref_forces[idx](j) - (fpos - tmpcog)(j) * ref_forces[idx](2) );
+                nume(j) += (j==0 ? ref_moments[idx](1):-ref_moments[idx](0));
+                denom(j) -= ref_forces[idx](2);
             }
         }
         if ( use_force == MODE_REF_FORCE_WITH_FOOT ) {
             hrp::Vector3 fpos(additional_force_applied_link->p+additional_force_applied_point_offset);
-            nume(j) += ( (fpos(2) - ref_com_height) * total_nosensor_ref_force(j) - fpos(j) * total_nosensor_ref_force(2) );
+            nume(j) += ( (fpos(2) - ref_com_height) * total_nosensor_ref_force(j) - (fpos - tmpcog)(j) * total_nosensor_ref_force(2) );
             denom(j) -= total_nosensor_ref_force(2);
         }
     }

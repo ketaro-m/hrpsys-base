@@ -159,6 +159,7 @@ public:
   interpolator *after_walking_interpolator;
   bool use_footguided_stabilizer;
   double footguided_balance_time_const;
+  double total_external_force_z;
   size_t jump_time_count;
   double jump_initial_velocity;
   bool is_emergency_initial, is_move_object, is_judge_move_object;
