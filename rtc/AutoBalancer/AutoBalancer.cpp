@@ -4033,9 +4033,9 @@ void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point,
                 size_t idx = contact_states_index_map[it->first];
                 // Force applied point is assumed as end effector
                 hrp::Vector3 fpos = it->second.target_link->p + it->second.target_link->R * it->second.localPos;
-                nume(j) += ( (fpos(2) - ref_com_height) * ref_forces[idx](j) - (fpos - tmpcog)(j) * ref_forces[idx](2) );
-                nume(j) += (j==0 ? ref_moments[idx](1):-ref_moments[idx](0));
-                denom(j) -= ref_forces[idx](2);
+                nume(j) += ( (fpos(2) - ref_com_height) * sbp_ref_forces[idx](j) - (fpos - tmpcog)(j) * sbp_ref_forces[idx](2) );
+                nume(j) += (j==0 ? sbp_ref_moments[idx](1):-sbp_ref_moments[idx](0));
+                denom(j) -= sbp_ref_forces[idx](2);
             }
         }
         if ( use_force == MODE_REF_FORCE_WITH_FOOT ) {
