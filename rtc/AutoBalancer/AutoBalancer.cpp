@@ -2139,7 +2139,7 @@ void AutoBalancer::calcTotalExternalForceZ ()
   for (std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++) {
     size_t idx = contact_states_index_map[it->first];
     if (std::find(leg_names.begin(), leg_names.end(), it->first) == leg_names.end()) { // Not included in leg_names
-      total_external_force_z += m_ref_force[idx].data[2];
+      total_external_force_z += sbp_ref_forces[idx][2];
     }
   }
   gg->total_external_force_z = total_external_force_z;
