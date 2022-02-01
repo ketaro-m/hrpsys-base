@@ -25,7 +25,7 @@ public:
     void setBasePos(const double *i_pos, double i_tm=0.0);
     void setBaseRpy(const double *i_rpy, double i_tm=0.0);
     void setBaseAcc(const double *i_acc, double i_tm=0.0);
-    void setWrenches(const double *i_wrenches, double i_tm=0.0);
+    void setWrenches(const double *i_wrenches, double i_tm=0.0, int active_limb_flag=0);
     void playPattern(std::vector<const double*> pos, std::vector<const double*> zmp, std::vector<const double*> rpy, std::vector<double> tm, const double *qInit, unsigned int len);
     //
     bool addJointGroup(const char *gname, const std::vector<int>& indices);
@@ -142,7 +142,7 @@ private:
         double time2remove;
     };
     void pop_back();
-    enum {Q, ZMP, ACC, P, RPY, TQ, WRENCHES, OPTIONAL_DATA, NINTERPOLATOR};
+    enum {Q, ZMP, ACC, P, RPY, TQ, WRENCHES_ARM, WRENCHES_LEG, OPTIONAL_DATA, NINTERPOLATOR};
     interpolator *interpolators[NINTERPOLATOR];
     std::map<std::string, groupInterpolator *> groupInterpolators; 
     int debug_level, m_dof;
