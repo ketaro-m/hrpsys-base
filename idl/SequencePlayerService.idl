@@ -199,7 +199,7 @@ module OpenHRP
      * @param tm duration [s]
      * @return true if set successfully, false otherwise
      */
-    boolean setWrenches(in dSequence wrenches, in double tm);
+    boolean setWrenches(in dSequence wrenches, in double tm, in long active_limb_flag);
 
     /**
      * @brief Interpolate all joint angles on robot using duration specified by \em tm. Returns without waiting for whole sequence to be sent to robot. If this function called during the robot moves, it overwrite current goal. [>= 315.5.0]

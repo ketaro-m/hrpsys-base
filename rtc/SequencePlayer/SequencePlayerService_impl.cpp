@@ -215,11 +215,11 @@ CORBA::Boolean SequencePlayerService_impl::setZmp(const dSequence& zmp, CORBA::D
     return m_player->setZmp(zmp.get_buffer(), tm);
 }
 
-CORBA::Boolean SequencePlayerService_impl::setWrenches(const dSequence& wrenches, CORBA::Double tm)
+CORBA::Boolean SequencePlayerService_impl::setWrenches(const dSequence& wrenches, CORBA::Double tm, CORBA::Long active_limb_flag)
 {
   //if (wrenches.length() != ) return false;
 
-    return m_player->setWrenches(wrenches.get_buffer(), tm);
+    return m_player->setWrenches(wrenches.get_buffer(), tm, active_limb_flag);
 }
 
 CORBA::Boolean SequencePlayerService_impl::setTargetPose(const char* gname, const dSequence& xyz, const dSequence& rpy, CORBA::Double tm){

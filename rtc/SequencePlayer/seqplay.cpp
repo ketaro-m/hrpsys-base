@@ -14,7 +14,8 @@ seqplay::seqplay(unsigned int i_dof, double i_dt, unsigned int i_fnum, unsigned 
     interpolators[P] = new interpolator(3, i_dt);
     interpolators[RPY] = new interpolator(3, i_dt);
     interpolators[TQ] = new interpolator(i_dof, i_dt);
-    interpolators[WRENCHES] = new interpolator(6 * i_fnum, i_dt, interpolator::HOFFARBIB, 100); // wrenches = 6 * [number of force sensors]
+    interpolators[WRENCHES_ARM] = new interpolator(6 * i_fnum, i_dt, interpolator::HOFFARBIB, 100); // wrenches = 6 * [number of force sensors]
+    interpolators[WRENCHES_LEG] = new interpolator(6 * i_fnum, i_dt, interpolator::HOFFARBIB, 100); // wrenches = 6 * [number of force sensors]
 	interpolators[OPTIONAL_DATA] = new interpolator(optional_data_dim, i_dt);
     // Set interpolator name
     interpolators[Q]->setName("Q");
@@ -23,7 +24,8 @@ seqplay::seqplay(unsigned int i_dof, double i_dt, unsigned int i_fnum, unsigned 
     interpolators[P]->setName("P");
     interpolators[RPY]->setName("RPY");
     interpolators[TQ]->setName("TQ");
-    interpolators[WRENCHES]->setName("WRENCHES");
+    interpolators[WRENCHES_ARM]->setName("WRENCHES_ARM");
+    interpolators[WRENCHES_LEG]->setName("WRENCHES_LEG");
     interpolators[OPTIONAL_DATA]->setName("OPTIONAL_DATA");
     //
 
@@ -39,7 +41,8 @@ seqplay::seqplay(unsigned int i_dof, double i_dt, unsigned int i_fnum, unsigned 
     interpolators[ZMP]->set(initial_zmp);
     double initial_wrenches[6 * i_fnum];
     for (size_t i = 0; i < 6 * i_fnum; i++) initial_wrenches[i] = 0;
-    interpolators[WRENCHES]->set(initial_wrenches);
+    interpolators[WRENCHES_ARM]->set(initial_wrenches);
+    interpolators[WRENCHES_LEG]->set(initial_wrenches);
 	double initial_optional_data[optional_data_dim];
 	for (size_t i = 0; i < optional_data_dim; i++) initial_optional_data[i] = 0;
 	interpolators[OPTIONAL_DATA]->set(initial_optional_data);
@@ -201,12 +204,32 @@ void seqplay::setBaseAcc(const double *i_acc, double i_tm)
 	}
 }
 
-void seqplay::setWrenches(const double *i_wrenches, double i_tm)
+void seqplay::setWrenches(const double *i_wrenches, double i_tm, int active_limb_flag)
 {
 	if (i_tm == 0){
-		interpolators[WRENCHES]->set(i_wrenches);
+		switch(active_limb_flag) {
+		case 1:
+			interpolators[WRENCHES_LEG]->set(i_wrenches);
+			break;
+		case 2:
+			interpolators[WRENCHES_ARM]->set(i_wrenches);
+			break;
+		default:
+			interpolators[WRENCHES_LEG]->set(i_wrenches);
+			interpolators[WRENCHES_ARM]->set(i_wrenches);
+		}
 	}else{
-		interpolators[WRENCHES]->setGoal(i_wrenches, i_tm);
+		switch(active_limb_flag) {
+		case 1:
+			interpolators[WRENCHES_LEG]->setGoal(i_wrenches, i_tm);
+			break;
+		case 2:
+			interpolators[WRENCHES_ARM]->setGoal(i_wrenches, i_tm);
+			break;
+		default:
+			interpolators[WRENCHES_LEG]->setGoal(i_wrenches, i_tm);
+			interpolators[WRENCHES_ARM]->setGoal(i_wrenches, i_tm);
+		}
 	}
 }
 
@@ -321,7 +344,8 @@ void seqplay::loadPattern(const char *basename, double tm)
     string wrenches = basename; wrenches.append(".wrenches");
     if (access(wrenches.c_str(),0)==0){
         found = true;
-        interpolators[WRENCHES]->load(wrenches, tm, scale, false);
+        interpolators[WRENCHES_ARM]->load(wrenches, tm, scale, false);
+        interpolators[WRENCHES_LEG]->load(wrenches, tm, scale, false);
         if (debug_level > 0) cout << wrenches;
     }
     if (debug_level > 0) cout << endl << "optional_data   = ";
@@ -374,7 +398,14 @@ void seqplay::get(double *o_q, double *o_zmp, double *o_accel,
 	interpolators[P]->get(o_basePos);
 	interpolators[RPY]->get(o_baseRpy);
 	interpolators[TQ]->get(o_tq);
-	interpolators[WRENCHES]->get(o_wrenches);
+	size_t n_force = interpolators[WRENCHES_ARM]->dimension();
+	std::vector<double> arm_wrenches(n_force), leg_wrenches(n_force);
+	interpolators[WRENCHES_ARM]->get(arm_wrenches.data());
+	interpolators[WRENCHES_LEG]->get(leg_wrenches.data());
+	for (size_t i = 0; i < n_force/2; i++) {
+		o_wrenches[i]           = leg_wrenches[i];
+		o_wrenches[i+n_force/2] = arm_wrenches[i+n_force/2];
+	}
 	interpolators[OPTIONAL_DATA]->get(o_optional_data);
 }
 
@@ -399,7 +430,8 @@ void seqplay::go(const double *i_q, const double *i_zmp, const double *i_acc,
 	if (i_p) interpolators[P]->go(i_p, ii_p, i_time, false);
 	if (i_rpy) interpolators[RPY]->go(i_rpy, ii_rpy, i_time, false);
 	if (i_tq) interpolators[TQ]->go(i_tq, ii_tq, i_time, false);
-	if (i_wrenches) interpolators[WRENCHES]->go(i_wrenches, ii_wrenches, i_time, false);
+	if (i_wrenches) interpolators[WRENCHES_ARM]->go(i_wrenches, ii_wrenches, i_time, false);
+	if (i_wrenches) interpolators[WRENCHES_LEG]->go(i_wrenches, ii_wrenches, i_time, false);
 	if (i_optional_data) interpolators[OPTIONAL_DATA]->go(i_optional_data, ii_optional_data, i_time, false);
 	if (immediate) sync();
 }
@@ -684,7 +716,7 @@ bool seqplay::setJointAnglesSequenceFull(std::vector<const double*> i_pos, std::
 	interpolators[ACC]->set(bacc);
 	interpolators[ACC]->clear();
 	interpolators[ACC]->push(bacc, dummy_3, dummy_3, true);
-	int fnum = interpolators[WRENCHES]->dimension()/6, optional_data_dim = interpolators[OPTIONAL_DATA]->dimension();
+	int fnum = interpolators[WRENCHES_ARM]->dimension()/6, optional_data_dim = interpolators[OPTIONAL_DATA]->dimension();
 	double zmp[3], wrench[6*fnum], dummy_fnum[6*fnum], optional[optional_data_dim], dummy_optional[optional_data_dim];
 	for (int j = 0; j < 6*fnum; j++) { dummy_dof[j] = 0.0; }
 	for (int j = 0; j < optional_data_dim; j++) { dummy_optional[j] = 0.0; }
@@ -692,10 +724,14 @@ bool seqplay::setJointAnglesSequenceFull(std::vector<const double*> i_pos, std::
 	interpolators[ZMP]->set(zmp);
 	interpolators[ZMP]->clear();
 	interpolators[ZMP]->push(zmp, dummy_3, dummy_3, true);
-	interpolators[WRENCHES]->get(wrench, false);
-	interpolators[WRENCHES]->set(wrench);
-	interpolators[WRENCHES]->clear();
-	interpolators[WRENCHES]->push(wrench, dummy_fnum, dummy_fnum, true);
+	interpolators[WRENCHES_ARM]->get(wrench, false);
+	interpolators[WRENCHES_ARM]->set(wrench);
+	interpolators[WRENCHES_ARM]->clear();
+	interpolators[WRENCHES_ARM]->push(wrench, dummy_fnum, dummy_fnum, true);
+	interpolators[WRENCHES_LEG]->get(wrench, false);
+	interpolators[WRENCHES_LEG]->set(wrench);
+	interpolators[WRENCHES_LEG]->clear();
+	interpolators[WRENCHES_LEG]->push(wrench, dummy_fnum, dummy_fnum, true);
 	interpolators[OPTIONAL_DATA]->get(optional, false);
 	interpolators[OPTIONAL_DATA]->set(optional);
 	interpolators[OPTIONAL_DATA]->clear();
@@ -741,7 +777,8 @@ bool seqplay::setJointAnglesSequenceFull(std::vector<const double*> i_pos, std::
 		interpolators[RPY]->setGoal(i_brpy[i], i_tm[i], false);
 		interpolators[ACC]->setGoal(i_bacc[i], i_tm[i], false);
 		interpolators[ZMP]->setGoal(i_zmps[i], i_tm[i], false);
-		interpolators[WRENCHES]->setGoal(i_wrenches[i], i_tm[i], false);
+		interpolators[WRENCHES_ARM]->setGoal(i_wrenches[i], i_tm[i], false);
+		interpolators[WRENCHES_LEG]->setGoal(i_wrenches[i], i_tm[i], false);
 		interpolators[OPTIONAL_DATA]->setGoal(i_optionals[i], i_tm[i], false);
 		do{
 			double tm = i_tm[i], tm_tmp;
@@ -751,7 +788,8 @@ bool seqplay::setJointAnglesSequenceFull(std::vector<const double*> i_pos, std::
 			tm_tmp = tm; interpolators[RPY]->interpolate(tm_tmp);
 			tm_tmp = tm; interpolators[ACC]->interpolate(tm_tmp);
 			tm_tmp = tm; interpolators[ZMP]->interpolate(tm_tmp);
-			tm_tmp = tm; interpolators[WRENCHES]->interpolate(tm_tmp);
+			tm_tmp = tm; interpolators[WRENCHES_ARM]->interpolate(tm_tmp);
+			tm_tmp = tm; interpolators[WRENCHES_LEG]->interpolate(tm_tmp);
 			tm_tmp = tm; interpolators[OPTIONAL_DATA]->interpolate(tm_tmp);
 		}while(i_tm[i]>0);
 		sync();

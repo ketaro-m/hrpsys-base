@@ -577,10 +577,10 @@ bool SequencePlayer::setZmp(const double *zmp, double tm)
     return true;
 }
 
-bool SequencePlayer::setWrenches(const double *wrenches, double tm)
+bool SequencePlayer::setWrenches(const double *wrenches, double tm, int active_limb_flag)
 {
     Guard guard(m_mutex);
-    m_seq->setWrenches(wrenches, tm);
+    m_seq->setWrenches(wrenches, tm, active_limb_flag);
     return true;
 }
 
@@ -914,5 +914,3 @@ extern "C"
     }
 
 };
-
-
