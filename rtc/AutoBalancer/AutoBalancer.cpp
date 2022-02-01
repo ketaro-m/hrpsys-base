@@ -1877,6 +1877,10 @@ void AutoBalancer::solveFullbodyIK ()
         if (m_robot->joint(i)->name == "L_SHOULDER_P" || m_robot->joint(i)->name == "LARM_JOINT1") fik->q_ref(i) += arm_off;
       }
   }
+  // calc sbp_cog_offset
+  hrp::Vector3 tmp_input_sbp = hrp::Vector3(0,0,0);
+  static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
+  sbp_cog_offset(2) = 0.0;
   fik->revertRobotStateToCurrentAll();
   {
     hrp::Vector3 tmpcog = m_robot->calcCM();
@@ -1884,10 +1888,6 @@ void AutoBalancer::solveFullbodyIK ()
       ref_cog.head(2) = (tmpcog + (ref_cog -  (st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cog))).head(2);
     }
   }
-  // calc sbp_cog_offset
-  hrp::Vector3 tmp_input_sbp = hrp::Vector3(0,0,0);
-  static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
-  sbp_cog_offset(2) = 0.0;
 
   if (gg->use_act_states && is_stop_early_foot) stopFootForEarlyTouchDown();
 
@@ -2119,11 +2119,11 @@ void AutoBalancer::solveSimpleFullbodyIK ()
       fik->ikp[it->first].is_ik_enable = it->second.is_active;
   }
   // Revert
-  fik->revertRobotStateToCurrent();
-  // TODO : SBP calculation is outside of solve ik?
   hrp::Vector3 tmp_input_sbp = hrp::Vector3(0,0,0);
   static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
-  hrp::Vector3 dif_cog = tmp_input_sbp - ref_cog;
+  fik->revertRobotStateToCurrent();
+  sbp_cog_offset(2) = 0.0;
+  hrp::Vector3 dif_cog = m_robot->calcCM() - (ref_cog - sbp_cog_offset);
 
   // Solve IK
   fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());
