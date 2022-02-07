@@ -412,7 +412,7 @@ void Stabilizer::getTargetParameters ()
     ref_total_moment = foot_origin_rot.transpose() * ref_total_moment;
     target_foot_origin_rot = foot_origin_rot;
     // capture point
-    ref_cp = ref_cog + ref_cogvel / std::sqrt(eefm_gravitational_acceleration / (ref_cog - ref_zmp)(2));
+    ref_cp = ref_cog + ref_cogvel / std::sqrt((eefm_gravitational_acceleration - total_external_force_z/total_mass) / (ref_cog - ref_zmp)(2));
     rel_ref_cp = hrp::Vector3(ref_cp(0), ref_cp(1), ref_zmp(2));
     rel_ref_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_ref_cp) - m_robot->rootLink()->p);
     sbp_cog_offset = foot_origin_rot.transpose() * sbp_cog_offset;
@@ -505,7 +505,7 @@ void Stabilizer::getActualParameters ()
       act_ee_R[i] = foot_origin_rot.transpose() * (target->R * stikp[i].localR);
     }
     // capture point
-    act_cp = act_cog + act_cogvel / std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+    act_cp = act_cog + act_cogvel / std::sqrt((eefm_gravitational_acceleration - total_external_force_z/total_mass) / (act_cog - act_zmp)(2));
     rel_act_cp = hrp::Vector3(act_cp(0), act_cp(1), act_zmp(2));
     rel_act_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_act_cp) - m_robot->rootLink()->p);
     // <= Actual foot_origin frame
@@ -552,7 +552,7 @@ void Stabilizer::getActualParametersForST ()
     new_refzmp = foot_origin_rot * new_refzmp + foot_origin_pos; // = abs_ref_zmp
     if (!is_walking || !use_act_states) {
       if (use_footguided_stabilizer && use_act_states) { // guided_stabilzier is not valid while walking
-        double omega = std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+        double omega = std::sqrt((eefm_gravitational_acceleration - total_external_force_z/total_mass) / (act_cog - act_zmp)(2));
         hrp::Vector3 act_xcp = (foot_origin_pos + foot_origin_rot * (act_cp + sbp_cog_offset)) - new_refzmp;
         hrp::Vector3 dxsp = hrp::Vector3::Zero(); // stay still
         new_refzmp += transition_smooth_gain * 2 * (act_xcp - std::exp(- omega * footguided_balance_time_const) * dxsp) / (1 - std::exp(-2 * omega * footguided_balance_time_const));

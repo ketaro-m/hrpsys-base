@@ -62,21 +62,22 @@ protected:
   double act_vel_ratio; // how much act_vel is used (0.0 ~ 1.0)
   double dc_off; // offset for disturbance compensation
   double mass;
+  double force_z;
   boost::shared_ptr<FirstOrderLowPassFilter<double> > zmp_filter;
 public:
   // constructor
   foot_guided_control_base() {}
-  foot_guided_control_base(const double _dt,  const double _dz, const double _mass, const double _freq,
+  foot_guided_control_base(const double _dt,  const double _dz, const double _mass, const double _freq, const double _force = 0.0,
                            const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
-    : dt(_dt), dz(_dz), g(_g), mass(_mass), act_vel_ratio(1.0),
+    : dt(_dt), dz(_dz), g(_g), mass(_mass), act_vel_ratio(1.0), force_z(_force),
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), act_x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), act_u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
     set_mat();
     zmp_filter = boost::shared_ptr<FirstOrderLowPassFilter<double> >(new FirstOrderLowPassFilter<double>(_freq, _dt, 0.0));
   }
-  foot_guided_control_base(const double _dt,  const double _dz, const double init_xk, const double _mass, const double _freq,
+  foot_guided_control_base(const double _dt,  const double _dz, const double init_xk, const double _mass, const double _freq, const double _force = 0.0,
                            const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
-    : dt(_dt), dz(_dz), g(_g), mass(_mass), act_vel_ratio(1.0),
+    : dt(_dt), dz(_dz), g(_g), mass(_mass), act_vel_ratio(1.0), force_z(_force),
       x_k(Eigen::Matrix<double, 2, 1>::Zero()), act_x_k(Eigen::Matrix<double, 2, 1>::Zero()), u_k(0.0), act_u_k(0.0), w_k_offset(0.0), mu(0.5)
   {
     set_mat();
@@ -109,8 +110,9 @@ public:
     u_k = u;
   }
   void set_offset (const double offset) { w_k_offset = offset; }
-  void set_dz(const double _dz) {
+  void set_dz(const double _dz, const double _force) {
     dz = _dz;
+    force_z = _force;
     set_mat();
   };
   void set_act_vel_ratio (const double ratio) { act_vel_ratio = ratio; }
@@ -132,11 +134,11 @@ private:
 protected:
 public:
   // constructor
-  foot_guided_controller(const double _dt,  const double _dz, const hrp::Vector3& init_xk, const double _mass, const double _freq,
+  foot_guided_controller(const double _dt,  const double _dz, const hrp::Vector3& init_xk, const double _mass, const double _freq, const double _force = 0.0,
                          const double _g = DEFAULT_GRAVITATIONAL_ACCELERATION)
   {
     controllers = new foot_guided_control_base[dim];
-    for (size_t i = 0; i < dim; i++) controllers[i] = foot_guided_control_base(_dt, _dz, init_xk[i], _mass, _freq, _g);
+    for (size_t i = 0; i < dim; i++) controllers[i] = foot_guided_control_base(_dt, _dz, init_xk[i], _mass, _freq, _force, _g);
   }
   // destructor
   ~foot_guided_controller()
@@ -218,9 +220,9 @@ public:
     for (size_t i = 0; i < dim; i++)
       controllers[i].get_acc(ret[i]);
   }
-  void set_dz(const double _dz) {
+  void set_dz(const double _dz, const double _force) {
     for (size_t i = 0; i < dim; i++) {
-      controllers[i].set_dz(_dz);
+      controllers[i].set_dz(_dz, _force);
     }
   }
 };

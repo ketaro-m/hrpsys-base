@@ -4,7 +4,7 @@
 
 void foot_guided_control_base::set_mat()
 {
-  xi = std::sqrt(g / dz);
+  xi = std::sqrt((g - force_z/mass) / dz);
   h = 1 + xi * dt;
   h_ = 1 - xi * dt;
   A <<
@@ -22,7 +22,7 @@ void foot_guided_control_base::set_mat()
   Phi_inv = 2.0 * Phi_inv;
   g_k <<
     0.0,
-    -g * dt;
+    -(g - force_z/mass) * dt;
 }
 
 double foot_guided_control_base::calc_u(const std::vector<LinearTrajectory<double> >& ref_zmp, const double cur_cp, const bool is_z)
