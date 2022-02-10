@@ -52,7 +52,17 @@ void foot_guided_control_base::truncate_u()
 // assumed after calc_u
 void foot_guided_control_base::calc_x_k(const bool is_z)
 {
-  x_k = A * x_k + b * u_k;
+  if (1) { // reference version appears to be more robust
+  // if (is_z) { // follow reference for height
+    x_k = A * x_k + b * u_k;
+  } else { // sec.6.1 in "Foot-guided control of a biped robot through ZMP manipulation"
+    double coef = 2.5;
+    double diff_p = (act_x_k(0) - x_k(0));
+    double diff_v = (act_x_k(1) - x_k(1));
+    double acc = xi * xi * (act_x_k(0) - act_u_k);
+    x_k(1) = x_k(1) + (acc + coef * diff_v) * dt;
+    x_k(0) = x_k(0) + (x_k(1) + coef * diff_p) * dt;
+  }
   if (is_z) x_k += g_k;
 }
 
