@@ -1799,7 +1799,7 @@ void Stabilizer::calcEEForceMomentControl()
   calcFootOriginCoords (foot_origin_pos, foot_origin_rot);
 
   // Swing ee compensation.
-  if (use_act_states) calcSwingEEModification();
+  if (use_act_states && use_force_sensor) calcSwingEEModification();
 
   // solveIK
   //   IK target is link origin pos and rot, not ee pos and rot.
