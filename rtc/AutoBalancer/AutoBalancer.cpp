@@ -2879,10 +2879,10 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
       default_zmp_offsets_array[i*3+j] = i_param.default_zmp_offsets[i][j];
   zmp_transition_time = i_param.zmp_transition_time;
   adjust_footstep_transition_time = i_param.adjust_footstep_transition_time;
-  if (zmp_offset_interpolator->isEmpty()) {
-      zmp_offset_interpolator->clear();
+  if (control_mode == MODE_IDLE) {
       zmp_offset_interpolator->setGoal(default_zmp_offsets_array, zmp_transition_time, true);
-  } else if (control_mode == MODE_IDLE) {
+  } else if (zmp_offset_interpolator->isEmpty()) {
+      zmp_offset_interpolator->clear();
       zmp_offset_interpolator->setGoal(default_zmp_offsets_array, zmp_transition_time, true);
   } else {
       std::cerr << "[" << m_profile.instance_name << "]   default_zmp_offsets cannot be set because interpolating." << std::endl;
