@@ -1,4 +1,4 @@
-option(BUILD_STABILIZER "Build Stabilizer RTC" OFF)
+option(BUILD_STABILIZER "Build Stabilizer RTC" ON)
 
 if(NOT BUILD_STABILIZER)
   return()
@@ -11,7 +11,7 @@ if(USE_QPOASES)
   add_definitions(-DUSE_QPOASES)
 endif()
 
-set(comp_sources Integrator.cpp TwoDofController.cpp Stabilizer.cpp StabilizerService_impl.cpp ../ImpedanceController/JointPathEx.cpp ../ImpedanceController/RatsMatrix.cpp ../TorqueFilter/IIRFilter.cpp)
+set(comp_sources Integrator.cpp TwoDofController.cpp Stabilizer.cpp StabilizerService_impl.cpp ../ImpedanceController/JointPathEx.cpp ../ImpedanceController/RatsMatrix.cpp ../TorqueFilter/IIRFilter.h)
 if(USE_QPOASES)
   set(libs hrpModel-3.1 hrpUtil-3.1 hrpsysBaseStub qpOASES)
 else()
