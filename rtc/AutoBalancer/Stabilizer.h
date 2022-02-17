@@ -24,7 +24,6 @@
 // Service implementation headers
 // <rtc-template block="service_impl_h">
 #include "AutoBalancerService_impl.h"
-#include "TwoDofController.h"
 #include "ZMPDistributor.h"
 #include "../ImpedanceController/JointPathEx.h"
 #include "../ImpedanceController/RatsMatrix.h"
@@ -115,13 +114,6 @@ public:
   std::vector<std::vector<Eigen::Vector2d> > support_polygon_vetices, margined_support_polygon_vetices;
   // TPCC
   double k_tpcc_p[2], k_tpcc_x[2], d_rpy[2], k_brot_p[2], k_brot_tc[2];
-  // RUN ST
-  TwoDofController m_tau_x[2], m_tau_y[2], m_f_z;
-  hrp::Vector3 pdr;
-  double m_torque_k[2], m_torque_d[2]; // 3D-LIP parameters (0: x, 1: y)
-  double pangx_ref, pangy_ref, pangx, pangy;
-  double k_run_b[2], d_run_b[2];
-  double rdx, rdy, rx, ry;
   // EEFM ST
   double eefm_k1[2], eefm_k2[2], eefm_k3[2], eefm_zmp_delay_time_const[2], eefm_body_attitude_control_gain[2], eefm_body_attitude_control_time_const[2];
   double eefm_pos_time_const_swing, eefm_pos_transition_time, eefm_pos_margin_time, eefm_gravitational_acceleration;
