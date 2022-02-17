@@ -385,12 +385,10 @@ class HrpsysConfigurator(object):
         if rtm.findPort(self.rh.ref, "lfsensor") and rtm.findPort(
                                      self.rh.ref, "rfsensor") and self.abc:
             connectPorts(self.kf.port("rpy"), self.abc.port("rpy"))
-            #### normal
-            else:
-                connectPorts(self.sh.port("zmpOut"), self.abc.port("zmpIn"))
-                connectPorts(self.sh.port("basePosOut"), self.abc.port("basePosIn"))
-                connectPorts(self.sh.port("baseRpyOut"), self.abc.port("baseRpyIn"))
-                connectPorts(self.sh.port("optionalDataOut"), self.abc.port("optionalData"))
+            connectPorts(self.sh.port("zmpOut"), self.abc.port("zmpIn"))
+            connectPorts(self.sh.port("basePosOut"), self.abc.port("basePosIn"))
+            connectPorts(self.sh.port("baseRpyOut"), self.abc.port("baseRpyIn"))
+            connectPorts(self.sh.port("optionalDataOut"), self.abc.port("optionalData"))
             connectPorts(self.abc.port("accRef"), self.kf.port("accRef"))
             connectPorts(self.rh.port("q"), self.abc.port("qCurrent"))
             connectPorts(self.seq.port("qRef"), self.abc.port("qRefSeq"))
