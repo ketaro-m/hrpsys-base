@@ -64,6 +64,6 @@ void Integrator::update (double _x) {
 
 double Integrator::calculate(void) {
   // calc integration by trapezoidal rule
-  // sum(1/2 * (f(x_i) - f(x_(i+1))), 0, N) * dt = (1/2 * f(0) + sum(f(x_i), 1, N-1) + 1/2 * f(N)) * dt
+  // sum(1/2 * (f(x_i) + f(x_(i+1))), 0, N) * dt = (1/2 * f(0) + sum(f(x_i), 1, N-1) + 1/2 * f(N)) * dt
   return (0.5 * first + sum + 0.5 * last) * dt;
 }
