@@ -163,7 +163,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     addOutPort("baseTformOut", m_baseTformOut);
     addOutPort("tmpOut", m_tmpOut);
     addOutPort("currentLandingPosOut", m_currentLandingPosOut);
-    addOutPort("diffStaticBalancePointOffset", m_diffFootOriginExtMomentOut);
+    addOutPort("diffFootOriginExtMoment", m_diffFootOriginExtMomentOut);
     addOutPort("allEEComp", m_allEECompOut);
     addOutPort("basePoseOut", m_basePoseOut);
     addOutPort("accRef", m_accRefOut);
