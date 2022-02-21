@@ -180,7 +180,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     act_force.push_back(hrp::Vector3::Zero());
     ref_force.push_back(hrp::Vector3::Zero());
     ref_moment.push_back(hrp::Vector3::Zero());
-    prev_act_force_z.push_back(0.0);
+    prev_act_force.push_back(hrp::Vector3::Zero());
     ref_contact_states.push_back(true);
     prev_ref_contact_states.push_back(true);
     // m_actContactStates.data[i] = false;
@@ -442,9 +442,9 @@ void Stabilizer::getActualParameters ()
   // zmp
   on_ground = false;
   if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
-    on_ground = calcZMP(act_zmp, zmp_origin_off+foot_origin_pos(2));
+    on_ground = calcZMP(act_zmp, zmp_origin_off+foot_origin_pos(2), foot_origin_rot);
   } else {
-    on_ground = calcZMP(act_zmp, ref_zmp(2));
+    on_ground = calcZMP(act_zmp, ref_zmp(2), foot_origin_rot);
   }
   // set actual contact states
   for (size_t i = 0; i < stikp.size(); i++) {
@@ -1276,7 +1276,7 @@ void Stabilizer::calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matri
   }
 }
 
-bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
+bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z, hrp::Matrix33 foot_origin_rot)
 {
   double tmpzmpx = 0;
   double tmpzmpy = 0;
@@ -1289,6 +1289,7 @@ bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
     rats::rotm3times(tmpR, sensor->link->R, sensor->localR);
     hrp::Vector3 nf = tmpR * hrp::Vector3(wrenches[i][0], wrenches[i][1], wrenches[i][2]);
     hrp::Vector3 nm = tmpR * hrp::Vector3(wrenches[i][3], wrenches[i][4], wrenches[i][5]);
+    hrp::Vector3 rel_nf = foot_origin_rot.transpose() * nf; // foot origin frame
     tmpzmpx += nf(2) * fsp(0) - (fsp(2) - zmp_z) * nf(0) - nm(1);
     tmpzmpy += nf(2) * fsp(1) - (fsp(2) - zmp_z) * nf(1) + nm(0);
     tmpfz += nf(2);
@@ -1305,8 +1306,8 @@ bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
     copInfo[i*3] = tmpcopmx;
     copInfo[i*3+1] = tmpcopmy;
     copInfo[i*3+2] = tmpcopfz;
-    prev_act_force_z[i] = 0.85 * prev_act_force_z[i] + 0.15 * nf(2); // filter, cut off 5[Hz]
-    tmpfz2 += prev_act_force_z[i];
+    prev_act_force[i] = 0.85 * prev_act_force[i] + 0.15 * rel_nf; // filter, cut off 5[Hz]
+    tmpfz2 += prev_act_force[i](2);
   }
   if (tmpfz2 < contact_decision_threshold) {
     ret_zmp = act_zmp;

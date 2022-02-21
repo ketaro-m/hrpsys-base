@@ -106,7 +106,7 @@ public:
   hrp::Vector3 ref_zmp, ref_cog, ref_cp, ref_cogvel, rel_ref_cp, prev_ref_cog, prev_ref_zmp;
   hrp::Vector3 act_zmp, act_cog, act_cogvel, act_cp, rel_act_zmp, rel_act_cp, prev_act_cog, act_base_rpy, current_base_rpy, current_base_pos, sbp_cog_offset, cp_offset, diff_cp, act_cmp;
   hrp::Vector3 foot_origin_offset[2];
-  std::vector<double> prev_act_force_z;
+  std::vector<hrp::Vector3> prev_act_force;
   double zmp_origin_off, transition_smooth_gain, d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2], root_rot_compensation_limit[2];
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_cogvel_filter;
   OpenHRP::AutoBalancerService::STAlgorithm st_algorithm;
@@ -197,7 +197,7 @@ public:
   hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& limit_value);
   hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& llimit_value, const hrp::Vector3& ulimit_value);
   void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
-  bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
+  bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z, hrp::Matrix33 foot_origin_rot);
   void calcStateForEmergencySignal();
   void calcSwingSupportLimbGain();
   void calcTPCC();
@@ -209,7 +209,7 @@ public:
   std::string getStabilizerAlgorithmString (OpenHRP::AutoBalancerService::STAlgorithm _st_algorithm);
   inline bool isContact (const size_t idx) // 0 = right, 1 = left
   {
-    return (prev_act_force_z[idx] > 25.0);
+    return (prev_act_force[idx](2) > 25.0);
   };
   void calcDiffFootOriginExtMoment ();
 };
