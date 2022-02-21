@@ -191,7 +191,6 @@ public:
   void setSwingSupportJointServoGains();
   void calcExternalForce (const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot);
   void calcTorque (const hrp::Matrix33& rot);
-  void calcRUNST();
   void moveBasePosRotForBodyRPYControl ();
   double vlimit(double value, double llimit_value, double ulimit_value);
   hrp::Vector3 vlimit(const hrp::Vector3& value, double llimit_value, double ulimit_value);
