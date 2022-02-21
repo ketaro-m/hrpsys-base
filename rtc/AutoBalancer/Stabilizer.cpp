@@ -1082,7 +1082,8 @@ void Stabilizer::calcTorque (const hrp::Matrix33& rot)
           hrp::dvector ft(6);
           // for (size_t i = 0; i < 6; i++) ft(i) = contact_ft(i+j*6);
           ft.segment(0,3) = rot * ikp.ref_force;
-          ft.segment(3,3) = rot * (ikp.ref_moment - ikp.localp.cross(ikp.ref_force));
+          ft.segment(3,3) = rot * ikp.ref_moment;
+          ft.segment(3,3) += (target->R * ikp.localp).cross(rot * ikp.ref_force);
           hrp::dvector tq_from_extft(jm.numJoints());
           tq_from_extft = JJ.transpose() * ft;
           // if (loop%200==0) {
