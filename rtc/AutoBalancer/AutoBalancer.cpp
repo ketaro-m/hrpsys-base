@@ -229,7 +229,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     m_tau.data.length(m_robot->numJoints());
     m_qTouchWall.data.length(m_robot->numJoints());
     m_baseTform.data.length(12);
-    m_tmp.data.length(27);
+    m_tmp.data.length(33);
     diff_q.resize(m_robot->numJoints());
     // for debug output
     m_originRefZmp.data.x = m_originRefZmp.data.y = m_originRefZmp.data.z = 0.0;
@@ -792,22 +792,35 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       if ((gg->get_support_leg_names().front() == "rleg" && m_landingHeight.data.l_r == 0) ||
           (gg->get_support_leg_names().front() == "lleg" && m_landingHeight.data.l_r == 1))
         {
+          m_tmp.data[27] = m_landingHeight.data.l_r == 0 ? 1 : 2;
           hrp::Vector3 pos(hrp::Vector3(m_landingHeight.data.x, m_landingHeight.data.y, m_landingHeight.data.z));
           hrp::Vector3 normal(hrp::Vector3(m_landingHeight.data.nx, m_landingHeight.data.ny, m_landingHeight.data.nz));
           if (isfinite(pos(2))) {
             gg->set_is_vision_updated(true);
             gg->set_rel_landing_height(pos);
             gg->set_rel_landing_normal(normal);
+            m_tmp.data[29] = pos(0);
+            m_tmp.data[30] = pos(1);
+            m_tmp.data[31] = pos(2);
           }
+        } else {
+          m_tmp.data[27] = m_landingHeight.data.l_r == 0 ? 3 : 4;
         }
+    } else {
+      m_tmp.data[27] = 0;
     }
     if (m_steppableRegionIn.isNew()) {
       m_steppableRegionIn.read();
       if ((gg->get_support_leg_names().front() == "rleg" && m_steppableRegion.data.l_r == 0) ||
           (gg->get_support_leg_names().front() == "lleg" && m_steppableRegion.data.l_r == 1))
         {
+          m_tmp.data[28] = m_steppableRegion.data.l_r == 0 ? 1 : 2;
           gg->set_steppable_region(m_steppableRegion);
+        } else {
+          m_tmp.data[28] = m_steppableRegion.data.l_r == 0 ? 3 : 4;
         }
+    } else {
+      m_tmp.data[28] = 0;
     }
 
     // Calculation
@@ -1013,6 +1026,7 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       tmp_zmp = st->ref_foot_origin_pos + st->ref_foot_origin_rot * st->act_cmp;
       m_tmp.data[23] = gg->get_tmp(21);
       m_tmp.data[24] = gg->get_tmp(22);
+      m_tmp.data[32] = gg->debug_steppable_height;
       m_tmp.tm = m_qRef.tm;
       m_tmpOut.write();
       if (gg_is_walking) {

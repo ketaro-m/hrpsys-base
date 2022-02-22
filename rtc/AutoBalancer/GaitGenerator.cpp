@@ -1558,6 +1558,7 @@ namespace rats
     if (!was_read_steppable_height) {
         was_read_steppable_height = true;
         cur_fs.worldcoords.pos(2) = tmp_height;
+        debug_steppable_height = tmp_height;
     }
 
     // world frame
