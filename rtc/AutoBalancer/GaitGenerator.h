@@ -1235,7 +1235,7 @@ namespace rats
       }
       _footstep_nodes_list.push_back(sns);
     };
-    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcog = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcogvel = hrp::Vector3::Zero(), const hrp::Vector3& target_cog = hrp::Vector3::Zero(), const bool& update_vel = false);
+    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcog = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcogvel = hrp::Vector3::Zero(), const hrp::Vector3& target_cog = hrp::Vector3::Zero());
     void calc_ref_coords_trans_vector_velocity_mode (coordinates& ref_coords, hrp::Vector3& trans, double& dth, const std::vector<step_node>& sup_fns, const velocity_mode_parameter& cur_vel_param) const;
     void calc_next_coords_velocity_mode (std::vector< std::vector<step_node> >& ret_list, const size_t idx, const size_t future_step_num = 3);
     void append_footstep_list_velocity_mode ();

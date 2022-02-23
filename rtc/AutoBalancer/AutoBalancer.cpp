@@ -2694,7 +2694,11 @@ bool AutoBalancer::setGaitGeneratorParam(const OpenHRP::AutoBalancerService::Gai
   gg->set_use_toe_heel_auto_set(i_param.use_toe_heel_auto_set);
   gg->set_zmp_weight_map(boost::assign::map_list_of<leg_type, double>(RLEG, i_param.zmp_weight_map[0])(LLEG, i_param.zmp_weight_map[1])(RARM, i_param.zmp_weight_map[2])(LARM, i_param.zmp_weight_map[3]));
   gg->set_optional_go_pos_finalize_footstep_num(i_param.optional_go_pos_finalize_footstep_num);
-  gg->set_overwritable_footstep_index_offset(i_param.overwritable_footstep_index_offset);
+  if (i_param.overwritable_footstep_index_offset < 4) {
+    gg->set_overwritable_footstep_index_offset(i_param.overwritable_footstep_index_offset);
+  } else {
+    std::cerr << "[" << m_profile.instance_name << "]   overwritable_footstep_index_offset must be less than 4" << std::endl;
+  }
   gg->set_leg_margin(i_param.leg_margin);
   gg->set_safe_leg_margin(i_param.safe_leg_margin);
   gg->set_vertices_from_leg_margin();
