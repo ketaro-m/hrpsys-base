@@ -1929,7 +1929,7 @@ void AutoBalancer::solveFullbodyIK ()
         bool use_roll_flywheel = gg->get_use_roll_flywheel() && !was_exceed_q_ref_err_thre, use_pitch_flywheel = gg->get_use_pitch_flywheel() && !was_exceed_q_ref_err_thre;
         if (use_roll_flywheel) tmp.targetRpy(0) = (prev_momentum + tmp_tau * m_dt)(0);//reference angular momentum
         if (use_pitch_flywheel) tmp.targetRpy(1) = (prev_momentum + tmp_tau * m_dt)(1);//reference angular momentum
-        double roll_weight, pitch_weight, fly_weight = 1e-3, normal_weight = 1e-7, weight_fly_interpolator_time = 0.02, weight_normal_interpolator_time = 0.4;
+        double roll_weight, pitch_weight, fly_weight = 1e-3, normal_weight = 1e-7, weight_fly_interpolator_time = 0.1, weight_normal_interpolator_time = 0.4;
         if (gg_is_walking && is_natural_walk) normal_weight = 0.0;
         if (gg->is_jumping) fly_weight = 1;
         if (ikp.size() >= 4 && (ikp["rarm"].is_active || ikp["larm"].is_active)) fly_weight = 1e-6;
