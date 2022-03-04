@@ -454,8 +454,8 @@ namespace rats
       void reset_one_step_count (const size_t d_one_step_len, const double default_double_support_ratio_before, const double default_double_support_ratio_after)
       {
         one_step_count += d_one_step_len;
-        // double_support_count_before = (default_double_support_ratio_before*one_step_count);
-        // double_support_count_after = (default_double_support_ratio_after*one_step_count);
+        // double_support_count_before = (default_double_support_ratio_before*one_step_count); // Either is fine because step time never change during double_support_raito_before
+        double_support_count_after = (default_double_support_ratio_after*one_step_count);
       };
       void reset_all (const double _dt, const size_t _one_step_len,
                       const double default_double_support_ratio_before, const double default_double_support_ratio_after,
