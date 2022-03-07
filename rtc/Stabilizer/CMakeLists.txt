@@ -1,4 +1,4 @@
-option(BUILD_STABILIZER "Build Stabilizer RTC" ON)
+option(BUILD_STABILIZER "Build Stabilizer RTC" OFF)
 
 if(NOT BUILD_STABILIZER)
   return()
