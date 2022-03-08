@@ -1089,12 +1089,14 @@ RTC::ReturnCode_t AutoBalancer::onExecute(RTC::UniqueId ec_id)
       hrp::Vector3 pos, vel;
       int l_r; // rleg: 0, lleg: 1
       gg->get_rel_landing_pos(pos, l_r);
+      m_landingTarget.tm = m_qRef.tm;
       m_landingTarget.data.x = pos(0) + off(0);
       m_landingTarget.data.y = pos(1) + off(1);
       m_landingTarget.data.z = pos(2) + off(2);
       m_landingTarget.data.l_r = l_r;
       m_landingTargetOut.write();
       gg->get_end_cog_state(pos, vel, l_r);
+      m_endCogState.tm = m_qRef.tm;
       m_endCogState.data.x = pos(0);
       m_endCogState.data.y = pos(1);
       m_endCogState.data.z = pos(2);
