@@ -1916,7 +1916,7 @@ void AutoBalancer::solveFullbodyIK ()
         tmp.localR = hrp::Matrix33::Identity();
         tmp.targetPos = ref_cog - sbp_cog_offset;// COM height will not be constraint
         hrp::Vector3 tmp_tau = gg->get_flywheel_tau();
-        tmp_tau = st->vlimit(tmp_tau, -50, 50);
+        tmp_tau = st->vlimit(tmp_tau, -40, 40);
         tmp.targetRpy = hrp::Vector3::Zero();
 
         hrp::Vector3 prev_momentum = fik->cur_momentum_around_COM_filtered;
