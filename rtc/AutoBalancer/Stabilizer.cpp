@@ -1307,7 +1307,7 @@ bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z, hrp::Matrix3
     copInfo[i*3] = tmpcopmx;
     copInfo[i*3+1] = tmpcopmy;
     copInfo[i*3+2] = tmpcopfz;
-    prev_act_force[i] = 0.85 * prev_act_force[i] + 0.15 * rel_nf; // filter, cut off 5[Hz]
+    prev_act_force[i] = 0.95 * prev_act_force[i] + 0.05 * rel_nf; // filter, cut off 5[Hz]
     tmpfz2 += prev_act_force[i](2);
   }
   if (tmpfz2 < contact_decision_threshold) {
