@@ -325,7 +325,7 @@ namespace rats
   void leg_coords_generator::calc_ratio_from_double_support_ratio (const double default_double_support_ratio_before, const double default_double_support_ratio_after)
   {
     int support_len_before = one_step_count * default_double_support_ratio_before;
-    int support_len_after = next_one_step_count * default_double_support_ratio_after;
+    int support_len_after = one_step_count * default_double_support_ratio_after;
     // int support_len = 2*static_cast<int>(one_step_count * default_double_support_ratio * 0.5);
     int swing_len = one_step_count - support_len_before - support_len_after;
     int current_swing_len = lcg_count - support_len_before;
@@ -651,7 +651,7 @@ namespace rats
       delete foot_guided_controller_ptr;
       foot_guided_controller_ptr = NULL;
     }
-    foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_refcog(2) - rg.get_refzmp_cur()(2), cur_refcog, total_mass, fg_zmp_cutoff_freq, gravitational_acceleration);
+    foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_refcog(2) - rg.get_refzmp_cur()(2), cur_refcog, total_mass, fg_zmp_cutoff_freq, total_external_force_z, gravitational_acceleration);
     // foot_guided_controller_ptr->set_act_vel_ratio(act_vel_ratio);
     foot_guided_controller_ptr->set_dc_off(hrp::Vector3::Zero());
     is_first_count = false;
@@ -665,7 +665,7 @@ namespace rats
     prev_fg_ref_zmp = rg.get_refzmp_cur();
     // fx_filter->reset(hrp::Vector3::Zero()); // not used for now
     zmp_filter->reset(rg.get_refzmp_cur());
-    // double omega = std::sqrt(gravitational_acceleration / (cur_cog - rg.get_refzmp_cur())(2));
+    // double omega = std::sqrt((gravitational_acceleration - total_external_force_z/total_mass) / (cur_cog - rg.get_refzmp_cur())(2));
     cp_filter->reset(cur_cog); // assume that robot is stopping when starting walking
     lr_region[0] = lr_region[1] = false;
     is_emergency_touch_wall = false;
@@ -718,7 +718,7 @@ namespace rats
       delete foot_guided_controller_ptr;
       foot_guided_controller_ptr = NULL;
     }
-    foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_refcog(2) - start_ref_coords.pos(2), cur_refcog, total_mass, fg_zmp_cutoff_freq, gravitational_acceleration);
+    foot_guided_controller_ptr = new foot_guided_controller<3>(dt, cur_refcog(2) - start_ref_coords.pos(2), cur_refcog, total_mass, fg_zmp_cutoff_freq, total_external_force_z, gravitational_acceleration);
     foot_guided_controller_ptr->set_dc_off(hrp::Vector3::Zero());
     if (!double_support_zmp_interpolator->isEmpty()) double_support_zmp_interpolator->clear();
   }
@@ -761,7 +761,9 @@ namespace rats
           velocity_mode_flg = VEL_IDLING;
           if (is_stable_go_stop_mode) is_emergency_step = true;
         }
-        if (overwritable_footstep_index_offset != 0) overwrite_footstep_nodes_list.push_back(footstep_nodes_list[lcg.get_footstep_index()]);
+        for (size_t i = 0; i < overwritable_footstep_index_offset; i++) {
+          overwrite_footstep_nodes_list.push_back(footstep_nodes_list[lcg.get_footstep_index() + i]);
+        }
         for (size_t i = 0; i < cv.size(); i++) {
             std::vector<step_node> tmp_fsn;
             for (size_t j = 0; j < cv.at(i).size(); j++) {
@@ -865,9 +867,9 @@ namespace rats
       // dc fxy
       hrp::Vector3 prev_fxy = fxy;
       hrp::Vector3 tmp_fxy = hrp::Vector3::Zero();
-      double cur_omega = std::sqrt(gravitational_acceleration / foot_guided_controller_ptr->get_dz());
-      // double ref_omega = std::sqrt(gravitational_acceleration / (cur_refcog - rg.get_refzmp_cur())(2));
-      double ref_omega = std::sqrt(gravitational_acceleration / foot_guided_controller_ptr->get_dz());
+      double cur_omega = std::sqrt((gravitational_acceleration - total_external_force_z/total_mass) / foot_guided_controller_ptr->get_dz());
+      // double ref_omega = std::sqrt((gravitational_acceleration - total_external_force_z/total_mass) / (cur_refcog - rg.get_refzmp_cur())(2));
+      double ref_omega = std::sqrt((gravitational_acceleration - total_external_force_z/total_mass) / foot_guided_controller_ptr->get_dz());
       act_cp = cur_cog + cur_cogvel / cur_omega + dc_off;
       ref_cp = cur_refcog + cur_refcogvel / ref_omega;
       hrp::Vector3 act_cpvel = (act_cp - prev_act_cp) / dt;
@@ -1016,10 +1018,10 @@ namespace rats
 
     // calc_cur_cp
     hrp::Vector3 dz = hrp::Vector3(0, 0, (target_cog - jump_midcoords.pos)(2));
-    foot_guided_controller_ptr->set_dz(dz(2));
+    foot_guided_controller_ptr->set_dz(dz(2), total_external_force_z);
     // hrp::Vector3 dz = hrp::Vector3(0, 0, foot_guided_controller_ptr->get_dz());
-    double cur_omega = std::sqrt(gravitational_acceleration / dz(2));
-    double ref_omega = std::sqrt(gravitational_acceleration / dz(2));
+    double cur_omega = std::sqrt((gravitational_acceleration - total_external_force_z/total_mass) / dz(2));
+    double ref_omega = std::sqrt((gravitational_acceleration - total_external_force_z/total_mass) / dz(2));
     act_cp = cur_cog + cur_cogvel / cur_omega + dc_off;
     ref_cp = cur_refcog + cur_refcogvel / ref_omega;
 
@@ -1226,7 +1228,7 @@ namespace rats
     traj_remain_count++;
 
     hrp::Vector3 dz = hrp::Vector3(0, 0, (target_cog - rg.get_refzmp_cur())(2));
-    foot_guided_controller_ptr->set_dz(dz(2));
+    foot_guided_controller_ptr->set_dz(dz(2), total_external_force_z);
     foot_guided_controller_ptr->set_x_k(cur_refcog, cur_refcogvel);
     if (use_act_states) foot_guided_controller_ptr->set_act_x_k(cur_cog, cur_cogvel, false);
     else foot_guided_controller_ptr->set_act_x_k(cur_refcog, cur_refcogvel, false);
@@ -1558,6 +1560,7 @@ namespace rats
     if (!was_read_steppable_height) {
         was_read_steppable_height = true;
         cur_fs.worldcoords.pos(2) = tmp_height;
+        debug_steppable_height = tmp_height;
     }
 
     // world frame
@@ -1632,7 +1635,7 @@ namespace rats
 
   void gait_generator::modify_footsteps_for_foot_guided (const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& target_cog)
   {
-    double omega = std::sqrt(gravitational_acceleration / foot_guided_controller_ptr->get_dz());
+    double omega = std::sqrt((gravitational_acceleration - total_external_force_z/total_mass) / foot_guided_controller_ptr->get_dz());
     bool is_modify = false;
     hrp::Vector3 orig_footstep_pos = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.pos;
     hrp::Matrix33 orig_footstep_rot = footstep_nodes_list[lcg.get_footstep_index()].front().worldcoords.rot;
@@ -1844,7 +1847,7 @@ namespace rats
         use_roll_flywheel = prev_use_roll_flywheel;
         use_pitch_flywheel = prev_use_pitch_flywheel;
       }
-      flywheel_tau = total_mass * gravitational_acceleration * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
+      flywheel_tau = total_mass * (gravitational_acceleration - total_external_force_z/total_mass) * hrp::Vector3(-short_of_zmp(1), short_of_zmp(0), 0);
       // if (use_roll_flywheel || use_pitch_flywheel) std::cerr << "torque :" << flywheel_tau.transpose()<< std::endl;
     }
     // fall down check // TODO: turn walking is not considered
@@ -2245,9 +2248,9 @@ namespace rats
     }
   };
 
-  void gait_generator::overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& target_cog, const bool& update_vel)
+  void gait_generator::overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog, const hrp::Vector3& cur_cogvel, const hrp::Vector3& cur_refcog, const hrp::Vector3& cur_refcogvel, const hrp::Vector3& target_cog)
   {
-    size_t idx = (update_vel ? get_overwritable_index() : lcg.get_footstep_index());
+    size_t idx = lcg.get_footstep_index();
     footstep_nodes_list.erase(footstep_nodes_list.begin()+idx, footstep_nodes_list.end());
 
     /* add new next steps ;; the number of next steps is fnsl.size() */
@@ -2261,11 +2264,7 @@ namespace rats
     rg.remove_refzmp_cur_list_over_length(idx);
     /*   reset index and counter */
     rg.set_indices(idx);
-    if (overwritable_footstep_index_offset == 0 || !update_vel) {
-        rg.set_refzmp_count(lcg.get_lcg_count()); // Start refzmp_count from current remaining footstep count of swinging.
-    } else {
-        rg.set_refzmp_count(static_cast<size_t>(fnsl[0][0].step_time/dt)); // Start refzmp_count from step length of first overwrite step
-    }
+    rg.set_refzmp_count(lcg.get_lcg_count()); // Start refzmp_count from current remaining footstep count of swinging.
     /*   reset refzmp */
     for (size_t i = 0; i < fnsl.size(); i++) {
         if (emergency_flg == EMERGENCY_STOP)
@@ -2289,12 +2288,7 @@ namespace rats
     }
     /* Overwrite refzmp index in preview contoroller queue */
     size_t queue_size = preview_controller_ptr->get_preview_queue_size();
-    size_t overwrite_idx;
-    if (overwritable_footstep_index_offset == 0 || !update_vel) {
-      overwrite_idx = 0; // Overwrite all queue
-    } else {
-      overwrite_idx = lcg.get_lcg_count(); // Overwrite queue except current footstep
-    }
+    size_t overwrite_idx = 0; // Overwrite all queue
     if (is_preview) {
       /* fill preview controller queue by new refzmp */
       hrp::Vector3 rzmp;

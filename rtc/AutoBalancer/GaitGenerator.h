@@ -455,7 +455,7 @@ namespace rats
       {
         one_step_count += d_one_step_len;
         // double_support_count_before = (default_double_support_ratio_before*one_step_count);
-        // double_support_count_after = (default_double_support_ratio_after*one_step_count);
+        double_support_count_after = (default_double_support_ratio_after*one_step_count);
       };
       void reset_all (const double _dt, const size_t _one_step_len,
                       const double default_double_support_ratio_before, const double default_double_support_ratio_after,
@@ -1127,7 +1127,9 @@ namespace rats
     double stair_step_time;
     double footguided_balance_time_const;
     size_t num_preview_step;
+    double total_external_force_z;
     bool is_jumping;
+    double debug_steppable_height;
 #ifndef HAVE_MAIN
   private:
 #endif
@@ -1233,7 +1235,7 @@ namespace rats
       }
       _footstep_nodes_list.push_back(sns);
     };
-    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcog = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcogvel = hrp::Vector3::Zero(), const hrp::Vector3& target_cog = hrp::Vector3::Zero(), const bool& update_vel = false);
+    void overwrite_refzmp_queue(const std::vector< std::vector<step_node> >& fnsl, const hrp::Vector3& cur_cog = hrp::Vector3::Zero(), const hrp::Vector3& cur_cogvel = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcog = hrp::Vector3::Zero(), const hrp::Vector3& cur_refcogvel = hrp::Vector3::Zero(), const hrp::Vector3& target_cog = hrp::Vector3::Zero());
     void calc_ref_coords_trans_vector_velocity_mode (coordinates& ref_coords, hrp::Vector3& trans, double& dth, const std::vector<step_node>& sup_fns, const velocity_mode_parameter& cur_vel_param) const;
     void calc_next_coords_velocity_mode (std::vector< std::vector<step_node> >& ret_list, const size_t idx, const size_t future_step_num = 3);
     void append_footstep_list_velocity_mode ();
@@ -1260,7 +1262,7 @@ namespace rats
         dt(_dt), all_limbs(_all_limbs), default_step_time(1.0), default_double_support_ratio_before(0.1), default_double_support_ratio_after(0.1), default_double_support_static_ratio_before(0.0), default_double_support_static_ratio_after(0.0), default_double_support_ratio_swing_before(0.1), default_double_support_ratio_swing_after(0.1), gravitational_acceleration(DEFAULT_GRAVITATIONAL_ACCELERATION),
         finalize_count(0), optional_go_pos_finalize_footstep_num(0), overwrite_footstep_index(0), overwritable_footstep_index_offset(1), is_emergency_step(false),
         velocity_mode_flg(VEL_IDLING), emergency_flg(IDLING), margin_time_ratio(0.01), footstep_modification_gain(5e-6), act_vel_ratio(1.0), use_disturbance_compensation(false), dc_gain(1e-4), num_preview_step(2),
-        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), was_read_steppable_height(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.0), is_inverse_double_phase(false), overwritable_max_time(2.0), fg_zmp_cutoff_freq(1e6), is_emergency_touch_wall(false), end_cog(hrp::Vector3::Zero()), end_cogvel(hrp::Vector3::Zero()), sum_d_footstep_plus(hrp::Vector3::Zero()), sum_d_footstep_minus(hrp::Vector3::Zero()), footstep_hist_max(hrp::Vector3::Zero()), footstep_hist_min(hrp::Vector3::Zero()), is_stuck(false), is_interpolate_zmp_in_double(true), is_stable_go_stop_mode(false), use_flywheel_balance(false), stair_step_time(0.5), footguided_balance_time_const(0.4), is_slow_stair_mode(false), changed_step_time_stair(false), is_jumping(false),
+        use_inside_step_limitation(true), use_stride_limitation(false), modify_footsteps(false), default_stride_limitation_type(SQUARE), is_first_count(false), is_first_double_after(true), double_remain_count_offset(0.0), use_roll_flywheel(false), use_pitch_flywheel(false), dcm_offset(0.0), rel_landing_pos(hrp::Vector3::Zero()), cur_supporting_foot(0), is_vision_updated(false), was_read_steppable_height(false), rel_landing_height(hrp::Vector3::Zero()), rel_landing_normal(hrp::Vector3::UnitZ()), zmp_delay_time_const(0.0), is_inverse_double_phase(false), overwritable_max_time(2.0), fg_zmp_cutoff_freq(1e6), is_emergency_touch_wall(false), end_cog(hrp::Vector3::Zero()), end_cogvel(hrp::Vector3::Zero()), sum_d_footstep_plus(hrp::Vector3::Zero()), sum_d_footstep_minus(hrp::Vector3::Zero()), footstep_hist_max(hrp::Vector3::Zero()), footstep_hist_min(hrp::Vector3::Zero()), is_stuck(false), is_interpolate_zmp_in_double(true), is_stable_go_stop_mode(false), use_flywheel_balance(false), stair_step_time(0.5), footguided_balance_time_const(0.4), is_slow_stair_mode(false), changed_step_time_stair(false), is_jumping(false), debug_steppable_height(0.0),
         preview_controller_ptr(NULL), foot_guided_controller_ptr(NULL), is_preview(false), updated_vel_footsteps(false), min_time_mgn(0.2), min_time(0.5), flywheel_tau(hrp::Vector3::Zero()), falling_direction(0), dc_foot_rpy(hrp::Vector3::Zero()), dc_landing_pos(hrp::Vector3::Zero()), sum_fx(hrp::Vector3::Zero()), sum_fy(hrp::Vector3::Zero()), des_fxy(hrp::Vector3::Zero()), fx_count(0), fy_count(0), debug_set_landing_height(false), debug_landing_height(0.0), front_edge_offset_of_steppable_region(Eigen::Vector2d::Zero()) {
         swing_foot_zmp_offsets.assign (1, hrp::Vector3::Zero());
         prev_que_sfzos.assign (1, hrp::Vector3::Zero());

@@ -146,20 +146,6 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
   move_object_thres = 0.1; // [m]
   move_object_dir = hrp::Vector3(1, 1, 1);
 
-  // parameters for RUNST
-  double ke = 0, tc = 0;
-  for (int i = 0; i < 2; i++) {
-    m_tau_x[i].setup(ke, tc, dt);
-    m_tau_x[i].setErrorPrefix(std::string(print_str));
-    m_tau_y[i].setup(ke, tc, dt);
-    m_tau_y[i].setErrorPrefix(std::string(print_str));
-    m_f_z.setup(ke, tc, dt);
-    m_f_z.setErrorPrefix(std::string(print_str));
-  }
-  pangx_ref = pangy_ref = pangx = pangy = 0;
-  rdx = rdy = rx = ry = 0;
-  pdr = hrp::Vector3::Zero();
-
   // Check is legged robot or not
   is_legged_robot = false;
   for (size_t i = 0; i < stikp.size(); i++) {
@@ -197,7 +183,7 @@ void Stabilizer::initStabilizer(const RTC::Properties& prop, const size_t& num)
     act_force.push_back(hrp::Vector3::Zero());
     ref_force.push_back(hrp::Vector3::Zero());
     ref_moment.push_back(hrp::Vector3::Zero());
-    prev_act_force_z.push_back(0.0);
+    prev_act_force.push_back(hrp::Vector3::Zero());
     ref_contact_states.push_back(true);
     prev_ref_contact_states.push_back(true);
     // m_actContactStates.data[i] = false;
@@ -415,7 +401,7 @@ void Stabilizer::getTargetParameters ()
     ref_total_moment = foot_origin_rot.transpose() * ref_total_moment;
     target_foot_origin_rot = foot_origin_rot;
     // capture point
-    ref_cp = ref_cog + ref_cogvel / std::sqrt(eefm_gravitational_acceleration / (ref_cog - ref_zmp)(2));
+    ref_cp = ref_cog + ref_cogvel / std::sqrt((eefm_gravitational_acceleration - total_external_force_z/total_mass) / (ref_cog - ref_zmp)(2));
     rel_ref_cp = hrp::Vector3(ref_cp(0), ref_cp(1), ref_zmp(2));
     rel_ref_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_ref_cp) - m_robot->rootLink()->p);
     sbp_cog_offset = foot_origin_rot.transpose() * sbp_cog_offset;
@@ -491,9 +477,9 @@ void Stabilizer::getActualParameters ()
   // zmp
   on_ground = false;
   if (st_algorithm != OpenHRP::AutoBalancerService::TPCC) {
-    on_ground = calcZMP(act_zmp, zmp_origin_off+foot_origin_pos(2));
+    on_ground = calcZMP(act_zmp, zmp_origin_off+foot_origin_pos(2), foot_origin_rot);
   } else {
-    on_ground = calcZMP(act_zmp, ref_zmp(2));
+    on_ground = calcZMP(act_zmp, ref_zmp(2), foot_origin_rot);
   }
   // set actual contact states
   for (size_t i = 0; i < stikp.size(); i++) {
@@ -540,7 +526,7 @@ void Stabilizer::getActualParameters ()
       act_ee_R[i] = foot_origin_rot.transpose() * (target->R * stikp[i].localR);
     }
     // capture point
-    act_cp = act_cog + act_cogvel / std::sqrt(eefm_gravitational_acceleration / (act_cog - act_zmp)(2));
+    act_cp = act_cog + act_cogvel / std::sqrt((eefm_gravitational_acceleration - total_external_force_z/total_mass) / (act_cog - act_zmp)(2));
     rel_act_cp = hrp::Vector3(act_cp(0), act_cp(1), act_zmp(2));
     rel_act_cp = m_robot->rootLink()->R.transpose() * ((foot_origin_pos + foot_origin_rot * rel_act_cp) - m_robot->rootLink()->p);
     // <= Actual foot_origin frame
@@ -587,7 +573,7 @@ void Stabilizer::getActualParametersForST ()
     new_refzmp = foot_origin_rot * new_refzmp + foot_origin_pos; // = abs_ref_zmp
     if (!is_walking || !use_act_states) {
       if (use_footguided_stabilizer && use_act_states) { // guided_stabilzier is not valid while walking
-        double omega = std::sqrt((eefm_gravitational_acceleration - arm_total_ref_force_z/m_robot->totalMass())  / (act_cog - act_zmp)(2));
+        double omega = std::sqrt((eefm_gravitational_acceleration - total_external_force_z/total_mass) / (act_cog - act_zmp)(2));
         hrp::Vector3 act_xcp = (foot_origin_pos + foot_origin_rot * (act_cp + sbp_cog_offset)) - new_refzmp;
         hrp::Vector3 dxsp = hrp::Vector3::Zero(); // stay still
         new_refzmp += transition_smooth_gain * 2 * (act_xcp - std::exp(- omega * footguided_balance_time_const) * dxsp) / (1 - std::exp(-2 * omega * footguided_balance_time_const));
@@ -927,10 +913,7 @@ void Stabilizer::sync_2_st ()
 {
   std::cerr << "[" << print_str << "] ["
             << "] Sync IDLE => ST"  << std::endl;
-  pangx_ref = pangy_ref = pangx = pangy = 0;
-  rdx = rdy = rx = ry = 0;
   d_rpy[0] = d_rpy[1] = 0;
-  pdr = hrp::Vector3::Zero();
   pos_ctrl = hrp::Vector3::Zero();
   prev_ref_foot_origin_rot = hrp::Matrix33::Identity();
   is_after_walking = false;
@@ -1134,7 +1117,8 @@ void Stabilizer::calcTorque (const hrp::Matrix33& rot)
           hrp::dvector ft(6);
           // for (size_t i = 0; i < 6; i++) ft(i) = contact_ft(i+j*6);
           ft.segment(0,3) = rot * ikp.ref_force;
-          ft.segment(3,3) = rot * (ikp.ref_moment - ikp.localp.cross(ikp.ref_force));
+          ft.segment(3,3) = rot * ikp.ref_moment;
+          ft.segment(3,3) += (target->R * ikp.localp).cross(rot * ikp.ref_force);
           hrp::dvector tq_from_extft(jm.numJoints());
           tq_from_extft = JJ.transpose() * ft;
           // if (loop%200==0) {
@@ -1163,191 +1147,6 @@ void Stabilizer::calcTorque (const hrp::Matrix33& rot)
   //   std::cerr << ")" << std::endl;
   // }
 };
-
-void Stabilizer::calcRUNST() {
-  if ( m_robot->numJoints() == qRef.size() ) {
-    std::vector<std::string> target_name;
-    target_name.push_back("L_ANKLE_R");
-    target_name.push_back("R_ANKLE_R");
-
-    double angvelx_ref;// = (m_rpyRef.data.r - pangx_ref)/dt;
-    double angvely_ref;// = (m_rpyRef.data.p - pangy_ref)/dt;
-    //pangx_ref = m_rpyRef.data.r;
-    //pangy_ref = m_rpyRef.data.p;
-    double angvelx = (rpy(0) - pangx)/dt;
-    double angvely = (rpy(1) - pangy)/dt;
-    pangx = rpy(0);
-    pangy = rpy(1);
-
-    // update internal robot model
-    for ( int i = 0; i < m_robot->numJoints(); i++ ){
-      qorg[i] = m_robot->joint(i)->q;
-      m_robot->joint(i)->q = qRef[i];
-      qrefv[i] = qRef[i];
-    }
-    //double orgjq = m_robot->link("L_FOOT")->joint->q;
-    double orgjq = m_robot->joint(m_robot->link("L_ANKLE_P")->jointId)->q;
-    //set root
-    m_robot->rootLink()->p = hrp::Vector3(0,0,0);
-    //m_robot->rootLink()->R = hrp::rotFromRpy(m_rpyRef.data.r,m_rpyRef.data.p,m_rpyRef.data.y);
-    m_robot->calcForwardKinematics();
-    hrp::Vector3 target_root_p = m_robot->rootLink()->p;
-    hrp::Matrix33 target_root_R = m_robot->rootLink()->R;
-    hrp::Vector3 target_foot_p[2];
-    hrp::Matrix33 target_foot_R[2];
-    for (size_t i = 0; i < 2; i++) {
-      target_foot_p[i] = m_robot->link(target_name[i])->p;
-      target_foot_R[i] = m_robot->link(target_name[i])->R;
-    }
-    hrp::Vector3 target_fm = (m_robot->link(target_name[0])->p + m_robot->link(target_name[1])->p)/2;
-    //hrp::Vector3 org_cm = m_robot->rootLink()->R.transpose() * (m_robot->calcCM() - m_robot->rootLink()->p);
-    hrp::Vector3 org_cm = m_robot->rootLink()->R.transpose() * (target_fm - m_robot->rootLink()->p);
-
-    // stabilizer loop
-    if ( ( wrenches[1].size() > 0 && wrenches[0].size() > 0 )
-         //( m_wrenches[ST_LEFT].data[2] > m_robot->totalMass()/4 || m_wrenches[ST_RIGHT].data[2] > m_robot->totalMass()/4 )
-         ) {
-
-      for ( int i = 0; i < m_robot->numJoints(); i++ ) {
-        m_robot->joint(i)->q = qorg[i];
-      }
-      // set root
-      double rddx;// = k_run_b[0] * (m_rpyRef.data.r - m_rpy.data.r) + d_run_b[0] * (angvelx_ref - angvelx);
-      double rddy;// = k_run_b[1] * (m_rpyRef.data.p - m_rpy.data.p) + d_run_b[1] * (angvely_ref - angvely);
-      rdx += rddx * dt;
-      rx += rdx * dt;
-      rdy += rddy * dt;
-      ry += rdy * dt;
-      //rx += rddx * dt;
-      //ry += rddy * dt;
-      // if (DEBUGP2) {
-      //   std::cerr << "REFRPY " <<  m_rpyRef.data.r << " " << m_rpyRef.data.p << std::endl;
-      // }
-      // if (DEBUGP2) {
-      //   std::cerr << "RPY " <<  m_rpy.data.r << " " << m_rpy.data.p << std::endl;
-      //   std::cerr << " rx " << rx << " " << rdx << " " << rddx << std::endl;
-      //   std::cerr << " ry " << ry << " " << rdy << " " << rddy << std::endl;
-      // }
-      hrp::Vector3 root_p_s;
-      hrp::Matrix33 root_R_s;
-      rats::rotm3times(root_R_s, hrp::rotFromRpy(rx, ry, 0), target_root_R);
-      if (DEBUGP2) {
-        hrp::Vector3 tmp = hrp::rpyFromRot(root_R_s);
-        std::cerr << "RPY2 " <<  tmp(0) << " " << tmp(1) << std::endl;
-      }
-      root_p_s = target_root_p + target_root_R * org_cm - root_R_s * org_cm;
-      //m_robot->calcForwardKinematics();
-      // FK
-      m_robot->rootLink()->R = root_R_s;
-      m_robot->rootLink()->p = root_p_s;
-      if (DEBUGP2) {
-        std::cerr << " rp " << root_p_s[0] << " " << root_p_s[1] << " " << root_p_s[2] << std::endl;
-      }
-      m_robot->calcForwardKinematics();
-      //
-      hrp::Vector3 current_fm = (m_robot->link(target_name[0])->p + m_robot->link(target_name[1])->p)/2;
-
-      // 3D-LIP model contorller
-      hrp::Vector3 dr = target_fm - current_fm;
-      //hrp::Vector3 dr = current_fm - target_fm ;
-      hrp::Vector3 dr_vel = (dr - pdr)/dt;
-      pdr = dr;
-      double tau_y = - m_torque_k[0] * dr(0) - m_torque_d[0] * dr_vel(0);
-      double tau_x = m_torque_k[1] * dr(1) + m_torque_d[1] * dr_vel(1);
-      if (DEBUGP2) {
-        dr*=1e3;
-        dr_vel*=1e3;
-        std::cerr << "dr " << dr(0) << " " << dr(1) << " " << dr_vel(0) << " " << dr_vel(1) << std::endl;
-        std::cerr << "tau_x " << tau_x << std::endl;
-        std::cerr << "tau_y " << tau_y << std::endl;
-      }
-
-      double gamma = 0.5; // temp
-      double tau_xl[2];
-      double tau_yl[2];
-      double xfront = 0.125;
-      double xrear = 0.1;
-      double yin = 0.02;
-      double yout = 0.15;
-      double mg = m_robot->totalMass() * 9.8 * 0.9;// margin
-      double tq_y_ulimit = mg * xrear;
-      double tq_y_llimit = -1 * mg * xfront;
-      double tq_x_ulimit = mg * yout;
-      double tq_x_llimit = mg * yin;
-      // left
-      tau_xl[0] = gamma * tau_x;
-      tau_yl[0] = gamma * tau_y;
-      tau_xl[0] = vlimit(tau_xl[0], tq_x_llimit, tq_x_ulimit);
-      tau_yl[0] = vlimit(tau_yl[0], tq_y_llimit, tq_y_ulimit);
-      // right
-      tau_xl[1]= (1- gamma) * tau_x;
-      tau_yl[1]= (1- gamma) * tau_y;
-      tau_xl[1] = vlimit(tau_xl[1], -1*tq_x_ulimit, -1*tq_x_llimit);
-      tau_yl[1] = vlimit(tau_yl[1], tq_y_llimit, tq_y_ulimit);
-
-      double dleg_x[2];
-      double dleg_y[2];
-      double tau_y_total = (wrenches[1][4] + wrenches[0][4]) / 2;
-      double dpz;
-      if (DEBUGP2) {
-        std::cerr << "tq limit " << tq_x_ulimit << " " << tq_x_llimit << " " << tq_y_ulimit << " " << tq_y_llimit << std::endl;
-      }
-      for (size_t i = 0; i < 2; i++) {
-        // dleg_x[i] = m_tau_x[i].update(m_wrenches[i].data[3], tau_xl[i]);
-        // dleg_y[i] = m_tau_y[i].update(m_wrenches[i].data[4], tau_yl[i]);
-        //dleg_x[i] = m_tau_x[i].update(m_wrenches[i].data[3], tau_xl[i]);
-        dleg_x[i] = m_tau_x[i].update(0,0);
-        dleg_y[i] = m_tau_y[i].update(tau_y_total, tau_yl[i]);
-        if (DEBUGP2) {
-          std::cerr << i << " dleg_x " << dleg_x[i] << std::endl;
-          std::cerr << i << " dleg_y " << dleg_y[i] << std::endl;
-          std::cerr << i << " t_x " << wrenches[i][3] << " "<< tau_xl[i] << std::endl;
-          std::cerr << i << " t_y " << wrenches[i][4] << " "<< tau_yl[i] << std::endl;
-        }
-      }
-
-      // calc leg rot
-      hrp::Matrix33 target_R[2];
-      hrp::Vector3 target_p[2];
-      for (size_t i = 0; i < 2; i++) {
-        //rats::rotm3times(target_R[i], hrp::rotFromRpy(dleg_x[i], dleg_y[i], 0), target_foot_R[i]);
-        rats::rotm3times(target_R[i], hrp::rotFromRpy(0, dleg_y[i], 0), target_foot_R[i]);
-        //target_p[i] = target_foot_p[i] + target_foot_R[i] * org_cm - target_R[i] * org_cm;
-        //target_p[i] = target_foot_p[i] + target_foot_R[i] * org_cm - target_R[i] * org_cm;
-        target_p[i] = target_foot_p[i];
-      }
-      // 1=>left, 2=>right
-      double refdfz = 0;
-      dpz = m_f_z.update((wrenches[0][2] - wrenches[1][2]), refdfz);
-      //target_p[0](2) = target_foot_p[0](2) + dpz/2;
-      //target_p[1](2) = target_foot_p[1](2) - dpz/2;
-      target_p[0](2) = target_foot_p[0](2);
-      target_p[1](2) = target_foot_p[1](2);
-
-      // IK
-      for (size_t i = 0; i < 2; i++) {
-        hrp::Link* target = m_robot->link(target_name[i]);
-        hrp::Vector3 vel_p, vel_r;
-        vel_p = target_p[i] - target->p;
-        rats::difference_rotation(vel_r, target->R, target_R[i]);
-        //jpe_v[i]->solveLimbIK(vel_p, vel_r, transition_count, 0.001, 0.01, MAX_TRANSITION_COUNT, qrefv, DEBUGP);
-        //jpe_v[i]->solveLimbIK(vel_p, vel_r, transition_count, 0.001, 0.01, MAX_TRANSITION_COUNT, qrefv, false);
-        //m_robot->joint(m_robot->link(target_name[i])->jointId)->q = dleg_y[i] + orgjq;
-      }
-      // m_robot->joint(m_robot->link("L_ANKLE_P")->jointId)->q = transition_smooth_gain * dleg_y[0] + orgjq + m_rpy.data.p;
-      // m_robot->joint(m_robot->link("R_ANKLE_P")->jointId)->q = transition_smooth_gain * dleg_y[1] + orgjq + m_rpy.data.p;
-      m_robot->joint(m_robot->link("L_ANKLE_P")->jointId)->q = transition_smooth_gain * dleg_y[0] + orgjq;
-      m_robot->joint(m_robot->link("R_ANKLE_P")->jointId)->q = transition_smooth_gain * dleg_y[1] + orgjq;
-    } else {
-      // reinitialize
-      for (int i = 0; i < 2; i++) {
-        m_tau_x[i].reset();
-        m_tau_y[i].reset();
-        m_f_z.reset();
-      }
-    }
-  }
-}
 
 void Stabilizer::setSwingSupportJointServoGains()
 {
@@ -1513,7 +1312,7 @@ void Stabilizer::calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matri
   }
 }
 
-bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
+bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z, hrp::Matrix33 foot_origin_rot)
 {
   double tmpzmpx = 0;
   double tmpzmpy = 0;
@@ -1526,6 +1325,7 @@ bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
     rats::rotm3times(tmpR, sensor->link->R, sensor->localR);
     hrp::Vector3 nf = tmpR * hrp::Vector3(wrenches[i][0], wrenches[i][1], wrenches[i][2]);
     hrp::Vector3 nm = tmpR * hrp::Vector3(wrenches[i][3], wrenches[i][4], wrenches[i][5]);
+    hrp::Vector3 rel_nf = foot_origin_rot.transpose() * nf; // foot origin frame
     tmpzmpx += nf(2) * fsp(0) - (fsp(2) - zmp_z) * nf(0) - nm(1);
     tmpzmpy += nf(2) * fsp(1) - (fsp(2) - zmp_z) * nf(1) + nm(0);
     tmpfz += nf(2);
@@ -1542,8 +1342,8 @@ bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
     copInfo[i*3] = tmpcopmx;
     copInfo[i*3+1] = tmpcopmy;
     copInfo[i*3+2] = tmpcopfz;
-    prev_act_force_z[i] = 0.85 * prev_act_force_z[i] + 0.15 * nf(2); // filter, cut off 5[Hz]
-    tmpfz2 += prev_act_force_z[i];
+    prev_act_force[i] = 0.95 * prev_act_force[i] + 0.05 * rel_nf; // filter, cut off 5[Hz]
+    tmpfz2 += prev_act_force[i](2);
   }
   if (tmpfz2 < contact_decision_threshold) {
     ret_zmp = act_zmp;
@@ -1834,7 +1634,7 @@ void Stabilizer::calcEEForceMomentControl()
   calcFootOriginCoords (foot_origin_pos, foot_origin_rot);
 
   // Swing ee compensation.
-  if (use_act_states) calcSwingEEModification();
+  if (use_act_states && use_force_sensor) calcSwingEEModification();
 
   // solveIK
   //   IK target is link origin pos and rot, not ee pos and rot.

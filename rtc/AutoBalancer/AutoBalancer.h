@@ -323,6 +323,7 @@ class AutoBalancer
   void stopFootForEarlyTouchDown();
   void calcTouchoffRemainTime();
   void limbStretchAvoidanceControl();
+  void calcTotalExternalForceZ();
 
   // for gg
   typedef boost::shared_ptr<rats::gait_generator> ggPtr;
@@ -401,7 +402,7 @@ class AutoBalancer
   std::map<std::string, interpolator*> touchdown_transition_interpolator;
   bool prev_roll_state, prev_pitch_state;
   bool is_emergency_step_mode, is_emergency_touch_wall_mode, is_emergency_stopping, is_touch_wall_motion_solved, use_collision_avoidance, is_natural_walk, is_stop_early_foot;
-  double cog_z_constraint, touch_wall_retrieve_time, arm_swing_deg;
+  double cog_z_constraint, touch_wall_retrieve_time, arm_swing_deg, total_external_force_z;
   bool debug_read_steppable_region;
   rats::coordinates initial_fix_coords;
   bool was_exceed_q_ref_err_thre;

@@ -70,13 +70,13 @@ module OpenHRP
     double nx;
     double ny;
     double nz;
-    long l_r;
+    long l_r; // 0: right. 1: left.
   };
 
   struct SteppableRegion
   {
     sequence<sequence<double> > region;
-    long l_r;
+    long l_r; // 0: right. 1: left.
   };
 
   struct CogState
@@ -87,7 +87,7 @@ module OpenHRP
     double vx;
     double vy;
     double vz;
-    long l_r;
+    long l_r; // 0: right. 1: left.
   };
 
   //------------------------------------------------------------

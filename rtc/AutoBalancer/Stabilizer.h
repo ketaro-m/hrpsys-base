@@ -24,7 +24,6 @@
 // Service implementation headers
 // <rtc-template block="service_impl_h">
 #include "AutoBalancerService_impl.h"
-#include "TwoDofController.h"
 #include "ZMPDistributor.h"
 #include "../ImpedanceController/JointPathEx.h"
 #include "../ImpedanceController/RatsMatrix.h"
@@ -108,7 +107,7 @@ public:
   hrp::Vector3 ref_zmp, ref_cog, ref_cp, ref_cogvel, rel_ref_cp, prev_ref_cog, prev_ref_zmp;
   hrp::Vector3 act_zmp, act_cog, act_cogvel, act_cp, rel_act_zmp, rel_act_cp, prev_act_cog, act_base_rpy, current_base_rpy, current_base_pos, sbp_cog_offset, cp_offset, diff_cp, act_cmp;
   hrp::Vector3 foot_origin_offset[2];
-  std::vector<double> prev_act_force_z;
+  std::vector<hrp::Vector3> prev_act_force;
   double zmp_origin_off, transition_smooth_gain, d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2], root_rot_compensation_limit[2];
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_cogvel_filter;
   OpenHRP::AutoBalancerService::STAlgorithm st_algorithm;
@@ -116,13 +115,6 @@ public:
   std::vector<std::vector<Eigen::Vector2d> > support_polygon_vetices, margined_support_polygon_vetices;
   // TPCC
   double k_tpcc_p[2], k_tpcc_x[2], d_rpy[2], k_brot_p[2], k_brot_tc[2];
-  // RUN ST
-  TwoDofController m_tau_x[2], m_tau_y[2], m_f_z;
-  hrp::Vector3 pdr;
-  double m_torque_k[2], m_torque_d[2]; // 3D-LIP parameters (0: x, 1: y)
-  double pangx_ref, pangy_ref, pangx, pangy;
-  double k_run_b[2], d_run_b[2];
-  double rdx, rdy, rx, ry;
   // EEFM ST
   double eefm_k1[2], eefm_k2[2], eefm_k3[2], eefm_zmp_delay_time_const[2], eefm_body_attitude_control_gain[2], eefm_body_attitude_control_time_const[2];
   double eefm_pos_time_const_swing, eefm_pos_transition_time, eefm_pos_margin_time, eefm_gravitational_acceleration;
@@ -160,6 +152,7 @@ public:
   interpolator *after_walking_interpolator;
   bool use_footguided_stabilizer;
   double footguided_balance_time_const;
+  double total_external_force_z;
   size_t jump_time_count;
   double jump_initial_velocity;
   bool is_emergency_initial, is_move_object, is_judge_move_object;
@@ -203,14 +196,13 @@ public:
   void setSwingSupportJointServoGains();
   void calcExternalForce (const hrp::Vector3& cog, const hrp::Vector3& zmp, const hrp::Matrix33& rot);
   void calcTorque (const hrp::Matrix33& rot);
-  void calcRUNST();
   void moveBasePosRotForBodyRPYControl ();
   double vlimit(double value, double llimit_value, double ulimit_value);
   hrp::Vector3 vlimit(const hrp::Vector3& value, double llimit_value, double ulimit_value);
   hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& limit_value);
   hrp::Vector3 vlimit(const hrp::Vector3& value, const hrp::Vector3& llimit_value, const hrp::Vector3& ulimit_value);
   void calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot);
-  bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z);
+  bool calcZMP(hrp::Vector3& ret_zmp, const double zmp_z, hrp::Matrix33 foot_origin_rot);
   void calcStateForEmergencySignal();
   void calcSwingSupportLimbGain();
   void calcTPCC();
@@ -222,7 +214,7 @@ public:
   std::string getStabilizerAlgorithmString (OpenHRP::AutoBalancerService::STAlgorithm _st_algorithm);
   inline bool isContact (const size_t idx) // 0 = right, 1 = left
   {
-    return (prev_act_force_z[idx] > 25.0);
+    return (prev_act_force[idx](2) > 25.0);
   };
   void calcDiffFootOriginExtMoment ();
 };
